@@ -5,61 +5,42 @@
 %%% End:
 \secretcontent{绝密}
 
-\ctitle{中国科学院大学学位论文 \LaTeX 模板\\使用示例文档}
-% 根据自己的情况选，不用这样复杂
+\ctitle{面向数据中心应用服务质量保障的资源管理可编程\\体系结构研究}
 \makeatletter
-
 \makeatother
-
 \cdegree{工学博士}
 \cdepartment[计算所]{中国科学院计算技术研究所}
 \cmajor{计算机系统结构}
-\cauthor{朝\hspace{1em}鲁} 
-\csupervisor{徐志伟\hspace{1em}研究员}
+\cauthor{马久跃} 
+\csupervisor{孙凝晖\hspace{1em}研究员}
 \csupervisorplace{中国科学院计算技术研究所}
-% 如果没有副指导老师或者联合指导老师，把下面两行相应的删除即可。
-
 
 % 日期自动生成，如果你要自己写就改这个cdate
-%\cdate{\CJKdigits{\the\year}年\CJKnumber{\the\month}月}
+% \cdate{\CJKdigits{\the\year}年\CJKnumber{\the\month}月}
 
-% 博士后部分
-% \cfirstdiscipline{计算机科学与技术}
-% \cseconddiscipline{系统结构}
-% \postdoctordate{2009年7月——2011年7月}
-
-\etitle{An Introduction to \LaTeX{} Thesis Template of\\University of Chinese Academy of Sciences} 
-% 这块比较复杂，需要分情况讨论：
-% 1. 学术型硕士
-%    \edegree：必须为Master of Arts或Master of Science（注意大小写）
-%              “哲学、文学、历史学、法学、教育学、艺术学门类，公共管理学科
-%               填写Master of Arts，其它填写Master of Science”
-%    \emajor：“获得一级学科授权的学科填写一级学科名称，其它填写二级学科名称”
-% 2. 学术型博士
-%    \edegree：Doctor of Philosophy（注意大小写）
-%    \emajor：“获得一级学科授权的学科填写一级学科名称，其它填写二级学科名称”
-
+\etitle{Programmable Architecture for Quality-of-Service in Datacenters }
 \edegree{Doctor of Philosophy}
-\eauthor{Chao Lu}
-\edepartment{Institute of Computing Technology\\Chinese Academy of Sciences}
+\eauthor{Ma Jiuyue}
+\edepartment{Institute of Computing Technology, Chinese Academy of Sciences}
 \emajor{Computer Architecture}
-\esupervisor{Xu Zhiwei}
+\esupervisor{Sun Ninghui}
 
 % 这个日期也会自动生成，你要改么？
 % \edate{December, 2005}
 
-% 定义中英文摘要和关键字
+% 中英文摘要和关键字
 \begin{cabstract}
-  论文的摘要是对论文研究内容和成果的高度概括。摘要应对论文所研究的问题及其研究目
-  的进行描述，对研究方法和过程进行简单介绍，对研究成果和所得结论进行概括。摘要应
-  具有独立性和自明性，其内容应包含与论文全文同等量的主要信息。使读者即使不阅读全
-  文，通过摘要就能了解论文的总体内容和主要成果。
-
-  论文摘要的书写应力求精确、简明。切忌写成对论文书写内容进行提要的形式，尤其要避
-  免“第 1 章……；第 2 章……；……”这种或类似的陈述方式。
-
-  本文介绍中国科学院大学论文模板 \ucasthesis{} 的使用方法。本模板符合学校的硕士、
-  博士论文格式要求。
+  数据中心环境下资源利用率与应用服务质量是重要的运行维护指标，但两者存在矛盾。目
+  前数据中心一般通过多应用混合提高资源利用率，但会引起干扰降低应用服务质量，进而
+  影响企业关键业务收入。因此如何在数据中心多应用共享资源环境下保障应用服务质量已
+  成为提高数据中心资源利用率的核心技术。软件定义网络（SDN）已能对数据中心互连网络
+  进行资源与性能隔离，但服务器节点内部依然存在严重的应用相互干扰。因此，本课题提
+  出一种从硬件上支持资源容量隔离与性能隔离的低开销、软件可编程的资源可编程体系结
+  构PARD（Programmable Architecture for Resourcing on-Demand），其核心思想是通过
+  对计算机内部共享资源控制器增加可编程的控制面，使控制器根据控制面的规则来监控与
+  转发数据通路上的数据请求包，从而实现对资源的容量隔离与性能隔离。通过硬件支持资
+  源隔离，PARD还能消除软件虚拟化的开销，支持多操作系统同时运行。本课题目标通过基
+  于模拟器的原型系统来验证PARD技术的可行性与实际效果。
 
   本文的创新点主要有：
   \begin{itemize}
@@ -73,26 +54,35 @@
   理。英文关键词同理。）
 \end{cabstract}
 
-\ckeywords{\TeX, \LaTeX, CJK, 模板, 论文}
+\ckeywords{数据中心, 服务质量}
 
 \begin{eabstract} 
-   An abstract of a dissertation is a summary and extraction of research work
-   and contributions. Included in an abstract should be description of research
-   topic and research objective, brief introduction to methodology and research
-   process, and summarization of conclusion and contributions of the
-   research. An abstract should be characterized by independence and clarity and
-   carry identical information with the dissertation. It should be such that the
-   general idea and major contributions of the dissertation are conveyed without
-   reading the dissertation. 
+  Contemporary data centers confront with challenges in managing the trade-offs
+  between resource utilization and applications’ quality of services (QoS).
 
-   An abstract should be concise and to the point. It is a misunderstanding to
-   make an abstract an outline of the dissertation and words ``the first
-   chapter'', ``the second chapter'' and the like should be avoided in the
-   abstract.
+  Co-locate multiple workloads into a single server is the most straightforward
+  approach to achieve high utilization. In this manner, Google’s batch-workload 
+  data centers achieve 75\% CPU utilization, on average.  However, co-location
+  induces contention for various shared hardware resources, as well as shared
+  software resources. Such contention causes unpredictable performance variability
+  that is amplified at data center scales where online services involve tens to
+  hundreds of servers in processing even a single user request. Moreover, such
+  performance variability occurs frequently due to the unpredictability of frequent,
+  short-running workloads. A month of profiling data from a 12,000-server Google
+  data center shows that more than a million jobs ran for only a few minutes.
 
-   Key words are terms used in a dissertation for indexing, reflecting core
-   information of the dissertation. An abstract may contain a maximum of 5 key
-   words, with semi-colons used in between to separate one another.
+  On the other hand, to guarantee QoS of latency-critical online services, data
+  center operators or developers tend to avoid sharing by either dedicating
+  resources or exaggerating reservations for online services in shared environments.
+  Another Google example shows that typical online-service datacenters exhibit
+  only about 30\% CPU utilization, on average, much lower than batch-workload
+  data centers. In fact, without co-location industry-wide utilization is even
+  lower-only between 6\% to 12\%.
+
+  Recognizing the inherent trade-offs, researchers have delved into the contention problem over the recent years. Lots of works focused on eliminate resource contention points at various levels of software stack, such as interrupt handler, OS/hypervisor scheduler or network 
+
+  These efforts include eliminate resource contention points at various levels of the software stack, from the interrupt handler, OS scheduler, and hypervisor scheduler, to the network stack, queuing buffers, and application locks. Despite these efforts, utilization of practical online-service data centers remains low. First, software-only approaches are limited to coarse-grained management, which results in relatively poor control accuracy. Second, sophisticated software stacks and varying application demands cause contention points to change across different scenarios. Third, finding contention points usually requires tremendous time and effort.
+
 \end{eabstract}
 
-\ekeywords{\TeX, \LaTeX, CJK, template, thesis}
+\ekeywords{Datacenter, QoS}

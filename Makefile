@@ -179,3 +179,6 @@ dist:
 	else \
 	    ./makedist.sh $(VERSION) UTF8; \
 	fi
+
+view: main.pdf
+	evince $<
