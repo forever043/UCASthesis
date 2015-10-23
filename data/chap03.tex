@@ -5,16 +5,65 @@
 %%% End: 
 
 \chapter{现有体系结构服务质量保障技术评估}
-\label{cha:china}
+\label{chap:curarch}
 
-\section{评测负载与干扰分析}
+Intel早在多年前便在Sandy Bridge处理器中加入Way-Based的Cache Partitioning技术，
+并且由UC Berkeley对该处理器进行了分析对比试验，认为Cache Partitioning能在很多
+情况下提升20\%的性能。
+该工作主要面向SPEC负载，但数据中心中运行的应用与SPEC存在很大差别[][]，
+因此在本章，希望使用现有的服务质量保障技术，对数据中心应用混合，验证其效果。
+
+并验证Loop-back的动态调速资源分配机制的有效性。
+
+%同时Intel的DDIO技术中也支持将LLC中的某几个Way分配给I/O数据，
+%以减少I/O数据对其他应用程序的影响。华为海思的ARM处理器也提出一定的QoS技术，
+%能对LLC进行按路划分；在内存控制器增加了控制机制。
+%
+%虽然这些处理器带有QoS功能，但在实际应用中却并没有得到广泛的应用。
+%因此，本课题将主要验证上述QoS机制的有效场景与实际效果，
+%同时验证带“Loop-back”的动态调整资源分配策略机制的有效性；
+%并基于电信转发控制典型业务以及互联网媒体应用，分析时延约束，流量模型及噪音影响等，
+%通过X86 QoS实测数据整理出QoS特性价值地图。
+
+\section{实验方法介绍}
+
+\subsection{Benchmark与应用}
+
+使用CloudSuite和BigDataBench，代替SPEC
+
+\subsection{实验平台}
+
+Intel Xeon E5-2658v3，带CAT/CMT技术
+
+\subsubsection*{X86: Intel Xeon E5-v3 CAT/CMT技术}
+\subsubsection*{ARM: Cache partition技术}
+
+\section{共享缓存分析}
+
+\subsection{缓存容量对性能影响}
+
+\subsection{缓存干扰对性能影响}
+
+\subsection{小结}
+
+\section{访存带宽分析}
+
+\section{动态资源分配策略}
+
+通过软件监控并设定阈值，对资源进行重新分配。包括Cache、CPU share等
+
+
+\section{本章小结}
+
+通过本章研究，我们发现在没有体系结构支持的情况下，共享会存在很强烈的干扰现象，在使用
+的软件隔离机制（cgroup）或调度机制后，可以在一定程度上缓解干扰。在传统体系结构下进行
+扩展的新技术（如CMT/CAT），可以为共享提供一定的保障，但是需要OS或软件提供相应的支持，
+因为我们需要一个新的体系结构来实现更好的服务质量保障。
+
+
+
 在第\chapterref{cha:intro}章中我们学习了贝叶斯公式~(\ref{equ:chap1:bayes})，这里我们复
 
-\section{软件服务质量保障}
-这里加入cgroup和调度相关的内容
-
-\section{X86: Intel Xeon E5-v3 CAT/CMT技术}
-\label{sec:other}
 
 在第\chapterref{cha:intro}章中我们学习了贝叶斯公式~(\ref{equ:chap1:bayes})，这里我们复
 习一下：
@@ -25,7 +74,6 @@ p(y|\mathbf{x}) = \frac{p(\mathbf{x},y)}{p(\mathbf{x})}=
 \end{equation}
 
 
-\section{ARM: Cache partition技术}
 
 \subsection{绘图}
 \label{sec:draw}
@@ -135,11 +183,4 @@ jPicEdt, jaxdraw 等等。
 道，作师说以贻之。
 
 \hfill —— 韩愈（唐）
-
-\section{小结}
-通过本章研究，我们发现在没有体系结构支持的情况下，共享会存在很强烈的干扰现象，在使用
-的软件隔离机制（cgroup）或调度机制后，可以在一定程度上缓解干扰。在传统体系结构下进行
-扩展的新技术（如CMT/CAT），可以为共享提供一定的保障，但是需要OS或软件提供相应的支持，
-因为我们需要一个新的体系结构来实现更好的服务质量保障。
-
 
