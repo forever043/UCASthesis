@@ -18,4 +18,6 @@ dtx-style.sty
 *.out
 *.thm
 *.toc
-*.pdf
+main.pdf
+spine.pdf
+ucasthesis.pdf
