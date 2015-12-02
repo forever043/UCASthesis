@@ -13,6 +13,7 @@
 本章将提出一种全新的体系结构PARD，以解决上面提出的问题。
 
 本章首先总体介绍PARD体系结构的特点，然后分析如何将一个现有的系统改造成PARD系统，
+并从用户角度说明PARD能够使用的功能，最后分析PARD在现有X86/ARM平台上实现的可行性。
 
 
 \section{Overview}
@@ -27,7 +28,14 @@
 
 \section{How to construct a PARD server}
 
-\subsection{基础系统}
+如上节所述，PARD并不是一个完全全新的体系结构，而是对现有体系结构的扩展。
+为了说明如何将PARD扩展到一个现有的体系结构中，本节首先构建了一台虚拟计算机，
+我们将其命名为XXXX，如图\ref{fig:XXX-computer}所示。
+XXX包含两路4核的处理器，每个处理器核拥有独立的一级缓存L1-I和L1-D，
+每个Socket的四个处理器核共享一个16路2MB的二级缓存；
+两个Socket拥有自己的内存控制器，同时使用MESI目录协议实现NUMA内存访问；
+XXX的I/O子系统包含SATA控制器和两个以太网卡，通过IOH芯片与两个处理器相连。
+XXX的结构可以很好的匹配到目前流行体系结构中（如X86或ARM）。
 
 \subsection{Computer as a Network => PARD}
 
