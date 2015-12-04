@@ -4,8 +4,8 @@
 %%% TeX-master: t
 %%% End: 
 
-\chapter{相关研究}
-\label{chap:related}
+\chapter{研究背景}
+\label{chap:background}
 
 互联网应用如电子邮件、搜索、网络购物、社交网络、在线视频、网络地图等, 已经成为人们
 生活的一部分。这些应用往往要为上亿用户服务，意味着互联网应用已变成如电力一样的社会
@@ -300,43 +300,6 @@ CPU核、共享缓存、内存控制器、I/O设备等可以被看做是网络�
 \end{itemize}
 
 
-\section{论文的主要贡献}
-In this paper, we propose Programmable Architecture for
-Resourcing-on-Demand (PARD) that provides a new programming
-interface to convey an application’s QoS requirements to the hardware.
-PARD supports new functionalities such as fully hardwaresupported
-virtualization without software hypervisors and differentiated
-service (DiffServ) [60] in data center servers. For instance,
-PARD can accurately isolate performance in shared data centers
-to improve server utilization without degrading QoS for latencycritical
-applications.
-
-
-
-\section{论文的组织结构}
-
-本文共分八章，第一章介绍移动计算带来的新计算模式对数据中心的挑战，然后讨论现有
-数据中心技术的局限性，并针对现有体系结构提出了新的需求，最后介绍了论文的研究动机、
-主要贡献和组织结构。
-
-第二章介绍体系结构领域解决服务质量问题的现有研究，并对比以网络领域的相关内容，
-讨论两者相互借鉴的可能性。
-
-第三章对现有体系结构的服务质量支持进行评估，包括软件（cgroup, hyperviso）和硬件
-两个层次。
-
-第四章介绍资源管理可编程体系结构的概念与核心思路，并将其映射到现有体系结构，
-讨论其可行性。同时应用资源管理可编程体系结构实现全硬件虚拟化，并讨论其关键技术。
-
-第五章讨论模拟器实现，主要从功能设计角度对控制面设计，与资源管理可编程实现，
-硬件支持、Trigger-Action机制，模拟的方式验证PARD的有效性。
-
-第六章基于前两章的设计给出本文资源管理可编程体系结构的FPGA原型系统实现，
-并对原型系统各部分功能的正确性、性能与开销进行了详细评测。
-
-第七章在数据中心场景下，对本文资源管理可编程体系结构在分布式场景下应用进行讨论。
-
-第八章总结全文并介绍未来可能的研究工作。
 
 
 处理应用服务质量与资源利用率的问题，在互联网公司、芯片厂商还是学术界都在想办法解决
