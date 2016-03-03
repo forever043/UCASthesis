@@ -4,68 +4,14 @@
 %%% TeX-master: t
 %%% End:
 
-\chapter{PARD FPGA原型系统}
-\label{cha:pardfpga}
+\chapter{共享资源协同管理}
+\label{chap:parddc}
 
-\section{FPGA原型设计目标}
+PRM软件接口，
 
+- 与mesos集成，实现硬件支持的容器
 
-\section{系统设计与关键技术}
+- 与OpenStack集成，实现IaaS平台
 
-\subsection{基础系统选择}
-
-\subsubsection*{CPU/System}
-\subsubsection*{DSid集成}
-\subsubsection*{AMP系统实现}
-
-
-\subsection{PRM系统设计}
-
-
-
-\subsection{CPN总线选择}
-
-为何选择I2C，有何替代
-
-如何改造I2C成为双向网络
-
-连接多个控制平台
-
-触发表中断传播机制
-
-
-\subsection{控制平台设计变化}
-
-\subsubsection*{表设计}
-\subsubsection*{状态表更新逻辑}
-\subsubsection*{触发表逻辑}
-
-
-\subsection{性能控制相关}
-\subsubsection*{Core修改与控制面设计}
-\subsubsection*{Cache修改与控制面设计}
-\subsubsection*{MIG修改与控制面设计}
-
-\subsection{小结}
-包含踩过的坑，如基础系统选择，最初的OpenSPARC方案+寄存器修改 => MicroBlaze外包一层
-FPGA实现中遇到的问题
-
-\section{FPGA原型的最终形态}
-
-\section{性能评估}
-
-\subsection{区分化服务}
-
-\subsection{性能隔离}
-
-\subsection{策略生效时间}
-
-并讨论如何实现ms级控制
-
-\subsection{实际应用测试}
-
-\subsection{开销}
-
-
-\section{小结}
+- 与SDN集成，实现网络中心的系统
 
