@@ -314,6 +314,13 @@ computing and storage needs of today’s enterprise data centers,
 campuses, and carrier environments. Some of the key computing trends
 driving the need for a new network paradigm include:
 
+\begin{figure}[tbh]
+  \centering
+  \includegraphics{arch/sdn-arch.pdf}
+  \caption{软件定义网络SDN架构}
+  \label{fig:pard-arch-outline}
+\end{figure}
+
 
 \section{本章小结}
 
@@ -411,61 +418,6 @@ UC Berkeley通过对该处理器进行了分析对比试验，认为Cache Partit
 %同时验证带“Loop-back”的动态调整资源分配策略机制的有效性；
 %并基于电信转发控制典型业务以及互联网媒体应用，分析时延约束，流量模型及噪音影响等，
 %通过X86 QoS实测数据整理出QoS特性价值地图。
-
-\subsubsection*{Intel Resource Director Technology（RDT）技术}
-
-针对多处理器芯片中多应用共享的特征，Intel提出了Resource Director Technology方案来解决多应用资源共享冲突问题。
-如图\ref{fig:intel-rdt-overview}所示，该方案的硬件基础是资源监控与资源分配控制机制，
-同时提供基于"监控->策略->控制"组合的闭环方式来实现应用感知的资源管理框架。
-其中资源监控提高了资源使用情况的能见度，使得资源利用率可以被跟踪，同时可以侦测到应用性能随资源的变化，
-为上层的资源调度提供数据基础；
-而硬件支持的资源分配控制机制，使得上层软件可以控制对硬件共享资源的使用。
-
-% Intel RDT Overview
-\begin{figure}[H]
-  \centering
-  \includegraphics{x86eval/intel-rdt-overview}
-  \caption[Intel Resource Director Technology (RDT) 技术示意图]{
-    Intel Resource Director Technology (RDT)技术：硬件提供资源监控与分配功能，
-    软件负责对资源使用进行调度，实现资源按需求动态分配。}
-  \label{fig:intel-rdt-overview}
-\end{figure}
-
-目前Intel已经将RDT方案应用到共享末级缓存和内存控制器中，通过CMT/MBM技术实现对缓存容量
-以及内存带宽的监控；通过CAT技术实现对缓存容量划分的支持。
-
-CMT和MBM技术允许操作系统或Hypervisor/VMM监控在其上运行的应用对共享缓存与内存带宽
-的使用情况，图\ref{fig:intel-cmt-flow}是该技术的流程示意图。
-操作系统或VMM首先为执行实体（如线程、进程或虚拟机）分配资源编号RMID，后续的监控结果都将
-以RMID的形式进行汇报。在OS/VMM执行调度并进行上下文切换时，将被调度实体的的RMID写入到目标
-处理器核对应的寄存器中。OS/VMM可以随时通过RMID查询各个执行实体的资源使用情况，如共享缓存
-占用或访存带宽等信息。
- 
-% Intel CMT Flow
-\begin{figure}[H]
-  \centering
-  \includegraphics{x86eval/intel-cmt-flow}
-  \caption[Intel Cache Monitor Technology (CMT) 技术流程]{Intel CMT技术流程：
-   （1）为线程、应用或虚拟机等执行实体分配资源编号RMID；（2）将包含RMID的PQR寄存器
-   保存在线程TCB或虚拟机VCPU中，并在执行上下文切换时写入到处理器核对应的物理寄存器中；
-   （3）根据RMID使用MSRs寄存器获取共享资源使用情况。}
-%Threads, applications, VMs or any combination can be associated with an RMID, enabling very flexible monitoring. As an example, all threads in a VM could be given the same RMID for simple per-VM monitoring. (2) The PQR register (containing an RMID) stored as part of a thread or VCPU state, which is written onto the thread-specific registers when a software thread is scheduled on a hardware thread for execution. (3) After a period of time (as defined by the software) the occupancy data for a given RMID can be read back through a pair of keyhole MSRs which provide the ability to input an RMID and Event ID (EvtID) in a selection MSR, and the hardware retrieves and returns the occupancy in the data MSR.}
-  \label{fig:intel-cmt-flow}
-\end{figure}
-
-CAT技术为OS/VMM提供了控制末级共享缓存容量的功能，如图\ref{fig:intel-cat-flow}所示，
-当该功能被开启后，应用将只能使用分配给它的Cache容量，实现路划分。
-路划分策略是以COS为粒度进行指定，OS/VMM首先为某一COS制定路划分策略，并将该COS关联到使用
-该策略的执行实体中，并在上下文划分时将被调度实体的COS写入到处理器核对应的寄存器中，
-共享缓存根据COS对应的策略来进行缓存替换操作。
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[height=8cm]{x86eval/intel-cat-flow}
-  \caption[Intel Cache Allocation Technology (CAT) 技术流程]{Intel CAT技术流程}
-  \label{fig:intel-cat-flow}
-\end{figure}
-
 
 \subsubsection*{ARM: Cache partition技术}
 
