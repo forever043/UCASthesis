@@ -7,3 +7,75 @@
 \chapter{硬件资源共享管理方法}
 \label{chap:hwresman}
 
+随着虚拟化与云计算的普及，越来越多的应用被运行在共享服务器中，
+但作为拥有最多应用与服务器数据中心，其服务器的资源利用率通常只有10\%-12\%。
+这主要是由于现有服务器体系结构不能很好的在共享场景中工作，
+使应用服务质量与服务器资源率相冲突造成的：
+现有服务器体系结构缺少有效的硬件资源共享管理机制，
+应用在无管理的前提下访问共享硬件资源产生资源竞争，
+造成严重的性能干扰，进而影响应用性能，
+来自Intel的研究\cite{intel}表明在共享末级缓存上的资源竞争最多可造成30\%的性能干扰；
+为了保障数据中心内大量延迟敏感型应用的性能不受影响，
+不得不将这些延迟敏感型应用部署在单独的服务器上\cite{}。
+因此，如何在硬件资源上提供灵活的共享管理方法，
+是解决数据中心资源利用率与服务质量相冲突、提高资源利用率的重要手段。
+
+如何提供统一的接口。 % control plane
+
+要实现硬件资源的共享管理，首先需要考虑如何监控资源用量，以及实时反馈。 % stab+ttab
+
+对于硬件，如何实现干扰隔离。 % cp_proc
+
+本文提出一种通用的硬件控制平面方法，为共享硬件资源提供共享资源管理的功能，具体包括:
+基于表的资源管理抽象，实时性能监控与反馈，资源调整机制，可编程数据平面处理器。
+与之前工作的主要区别是，（1）统一的资源抽象，而不是为单独某一个硬件资源；
+（2）（3）
+
+XXXX
+
+xxx
+
+XXXX
+
+本章主要
+%In this chapter I focus on the failure recovery, metadata I/O efficiency, and adaptability
+%implications of the combined approach to metadata storage, journaling, and workload
+%distribution and relate my experiences constructing a working implementation. I analyze a
+%variety of static file system snapshots and workload traces to motivate MDS design and performance
+%analysis, present a simulation based-analysis of metadata partitioning approaches to
+%demonstrate the architectural advantages of a dynamic subtree-based approach, and evaluate
+%my implementation under a range of micro-benchmarks, workload traces, and failure scenarios.
+
+
+%这种多应用共享的使用方式在现有的服务器架构下会造成应用之间严重的干扰。
+%为了防止这些硬件层次的干扰对延迟敏感型应用的性能造成影响，
+%通常不会允许其它应用与延迟敏感型应用共享服务器资源，
+%造成很低的服务器资源利用率。
+
+
+\section{背景与相关工作}
+
+
+\section{硬件资源抽象}
+
+
+\section{控制平面设计}
+
+\subsection{实时资源监控与反馈}
+
+\subsection{资源调整机制}
+
+\subsection{控制平面微体系结构设计}
+
+\subsection{控制平面示例}
+
+\subsubsection{内存控制器控制平面}
+
+\subsubsection{共享末级缓存控制平面}
+
+
+\section{可编程数据平面设计}
+
+
+\section{小结}
+
