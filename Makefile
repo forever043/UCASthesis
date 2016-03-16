@@ -13,7 +13,7 @@ endif
 
 PACKAGE=ucasthesis
 SOURCES=$(PACKAGE).ins $(PACKAGE).dtx 
-THESISCONTENTS=$(THESISMAIN).tex data/*.tex $(EPS) $(EPSGEN)
+THESISCONTENTS=$(THESISMAIN).tex data/*.tex #$(EPS) $(EPSGEN)
 EPS=$(wildcard figures/*.eps)
 EPSGEN=
 # xelatex can directly use jpg file
