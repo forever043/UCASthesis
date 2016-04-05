@@ -75,7 +75,8 @@
 种交互式计算模式，快速的服务响应时间是衡量服务质量（Quality-of-Service，QoS）的关键指标，
 是让用户满意、留住用户的关键。有研究表明，如果服务响应时间增加，公司收入就会减少。
 例如，2009年微软在Bing搜索引擎上也开展实验，发现当服务响应时间增加到2000ms时，
-每个用户带给企业的收益更是下降了4.3\%。由于该实验对公司产生了负面影响，最终不得不被终止[8]。
+每个用户带给企业的收益更是下降了4.3\%。
+由于该实验对公司产生了负面影响，最终不得不被终止\cite{bing:2009}。
 Amazon也发现其主页加载时间每增加100ms就会导致销售额下降1\% 。
 而Google更是发现当搜索结果返回时间从0.4s增加到0.9s时，广告收入下降了20\%。
 
@@ -89,7 +90,7 @@ Amazon也发现其主页加载时间每增加100ms就会导致销售额下降1\%
 \begin{minipage}{0.48\textwidth}
   \centering
   \includegraphics[height=5cm]{intro/interact-apps}
-  \caption[一个典型的交互式请求的5个阶段]{一个典型的交互式请求的5个阶段：C1->N1->S->N2->C2 \cite{timecard2013}}
+  \caption[一个典型的交互式请求的5个阶段]{一个典型的交互式请求的5个阶段：C1->N1->S->N2->C2 \cite{timecard:2013}}
   \label{fig:interact-apps}
 \end{minipage}
 \end{figure}
@@ -134,7 +135,7 @@ Hadoop/MapReduce框架一统天下的模式将被打破，而实时流计算、�
 以减少批处理作业对在线应用的干扰。
 但由于用户查询请求数量具有显著的随时间变化的波动性，
 这种分离作业、单独部署的模式会导致在线应用数据中心的资源平均利用率很低。
-如图4所示，Google的两类数据中心CPU利用率相差达2.5倍，在线应用数据中心资源利用率仍有很大提升空间。
+如图\ref{fig:google-util-2013}所示，Google的两类数据中心CPU利用率相差达2.5倍，在线应用数据中心资源利用率仍有很大提升空间。
 
 
 %% 典型的数据中心一般有5~10万台服务器组成，建设与运行维护成本往往高达几十亿人民
@@ -192,26 +193,47 @@ Google的数据中心技术一直处于领先地位，我们以Google为例分�
 
 尽管在线数据中心资源利用率只有30\%，但Google已经观察到严峻的长尾延迟现象：
 最慢的1\%~10\%请求处理时间远大于所有请求的平均响应时间。
-如图6所示，Google某后台服务延迟响应时间平均仅为5~6ms，但是却有相当一部分请求响应时间超过了100ms[49]。
+如图\ref{fig:google-resptime-dist}所示，Google某后台服务延迟响应时间平均仅为5~6ms，
+但是却有相当一部分请求响应时间超过了100ms\cite{Krushevskaja:2013}。
 而长尾延迟现象在数据中心环境下会被更进一步放大，
 因为一个用户请求需要几百上千台服务器共同完成，只要有一台服务器的处理速度受到干扰，
 就会导致整个请求的处理时间增加。
-Google的Jeff Dean在2012年Berkeley的报告[11]中就指出了长尾现象的严重性，
-假设一台机器处理请求的平均响应时间为1ms，有1\%的请求为长尾处理时间会大于1s（99th-Percentile）。
-如果一个请求需要由100个这样的节点一起处理，那么就会出现63\%的请求响应时间大于1s（如图7所示）。
+Google的Jeff Dean在2012年Berkeley的报告\cite{dean_achieving_2012}中就指出了长尾现象的严重性，
+假设一台机器处理请求的平均响应时间为1ms，
+有1\%的请求为长尾处理时间会大于1s（99th-Percentile）。
+如果一个请求需要由100个这样的节点一起处理，
+那么就会出现63\%的请求响应时间大于1s
+（如图\ref{fig:long-tail-amplify}所示）。
 
 造成在线应用数据中心资源利用率低和长尾延迟现象的核心原因是，
 现有数据中心技术无法在多应用混合运行时消除应用间干扰，以实现不同应用之间的性能隔离。
 Google的Jeff Dean与Luiz Barroso在2013年2月的《Communication of the ACM》上撰文
-“The Tail at Scale”[10]分析确认导致长尾延迟的首要原因就是资源共享，
+“The Tail at Scale”\cite{dean_tail_2013}分析确认导致长尾延迟的首要原因就是资源共享，
 包括体系结构层次的CPU核、Cache、访存带宽、网络带宽等，而干扰不仅来自应用，
 还会来自系统软件层次的后台守护作业、监控作业、共享文件系统等。
 Google在分布式架构和软件层次采用了多种缓解长尾延迟的技术，
-包括操作系统容器隔离技术[12]、应用优先级管理[13]、备份请求[11]、同步后台管理进程[11]等，
+包括操作系统容器隔离技术\cite{cgroup}、应用优先级管理\cite{google_trace}、
+备份请求\cite{dean_achieving_2012}、同步后台管理进程\cite{dean_achieving_2012}等，
 取得了一定的效果，但却无法消除硬件体系结构层次上的应用之间的干扰，
-导致仍然会出现图6这样的长尾延迟。
+导致仍然会出现图\ref{fig:google-resptime-dist}这样的长尾延迟。
 
-因此，现有数据中心处于“无管理的资源共享”状态，这导致出现资源利用率与应用服务质量之间的矛盾：
+\begin{figure}
+\begin{minipage}{0.44\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{intro/google-resptime-dist}
+  \caption[Google某后台服务的响应时间分布]{Google某后台服务的响应时间分布\cite{Krushevskaja:2013}}
+  \label{fig:google-resptime-dist}
+\end{minipage}\hfill
+\begin{minipage}{0.52\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{intro/long-tail-amplify}
+  \caption[长尾延迟放大效应]{长尾延迟放大效应\cite{dean_tail_2013}}
+  \label{fig:long-tail-amplify}
+\end{minipage}
+\end{figure}
+
+因此，现有数据中心处于“无管理的资源共享”状态，这
+导致出现资源利用率与应用服务质量之间的矛盾：
 一方面通过多个应用同时在数据中心部署实现资源共享能有效提高资源利用率，
 但另一方面多个应用共享资源又会出现相互干扰严重影响应用的服务质量。
 因此，目前企业不得不采用预留额外资源以保障延迟敏感的在线应用服务质量，
@@ -221,12 +243,163 @@ Google在分布式架构和软件层次采用了多种缓解长尾延迟的技�
 
 \section{相关工作}
 
-\subsection{共享场景下的服务器使用模式}
+随着应用数量与规模的不断增加，数据中心所需要的服务器数量也在飞速增长中。
+而受到电力供应、冷却系统以及占地面积等客观因素的影响，
+服务器规模并不能够无限制的扩大，
+服务器融合（Server Consolidation）成为当前应用部署的主流技术。
+本节首先介绍当前常见的服务器融合技术，并对比其在资源、性能等方面的隔离性；
+然后介绍在这种服务器融合的共享环境下，已有的服务质量与资源管理的相关工作；
+最后对比网络领域中解决服务器质量与资源管理的方案，
+讨论将其应用于计算机体系结构中的可行性。
 
-软件虚拟化、轻量级虚拟化、硬分区、逻辑域
+\subsection{服务器融合技术}
 
-\subsection{资源管理与服务质量}
+通过考查现代数据中心的应用架构，可以发现其中大部分架构都符合“数据复用模型”，
+即多个应用程序协同工作，每个应用只对数据进行部分处理，然后交给下级应用程序，
+这些应用程序最终组合完成一个服务功能，提供给最终用户。
+通过这种方式形成的复杂应用架构，由于在兼容性、性能或安全等多方面的原因，
+各个模块通常不能很好的在一台服务器内工作，而是需要多台服务器进行部署，
+大量这样的多服务器应用给数据中心的维护工作带来了很大的挑战。
+从另一方面，应用与服务器规模的不断增长，
+数据中心在占地、电力消耗、冷却系统等方面也产生了极大的压力，
+但服务器资源利用率过低的问题，造成数据中心整体的效率十分低下。
+为解决这一问题，许多软硬件厂商都提出了自己的方法与技术，
+将应用部署到更少的物理服务器中，实现高效可管理的服务器融合，
+其中虚拟化、硬件分区与基于容器的轻量级虚拟化是三种目前应用最为广泛的服务器融合技术。
 
+%软件虚拟化
+虚拟化技术，全虚拟化VMWare ESX系统，
+内核支持的虚拟化KVM\cite{}，
+半虚拟化Xen\cite{barham_xen_2003}，实现Hypervisor感知的虚拟化，其主要动机是降低虚拟化开销，
+当前硬件上提出很多技术来支持虚拟化，当前开销已经很小，
+因此Xen这类虚拟化软件应用范围逐渐缩小。
+这也说明硬件支持降低软件开销是一个主流，本文提出了一种全硬件虚拟化，
+能够进一步降低软件干预，降低软件成本，同时消除由软件引入的开销。
+
+%硬件虚拟化
+软件虚拟化技术其主要问题是开销，因于需要Hypervisor的干预。
+早期大型机所使用的分区技术是另一种硬件方案，在硬件上支持分区，如IBM的LPAR\cite{}，
+SPARC系统的Logical Domain\cite{}，
+
+%轻量级虚拟化
+为了降低虚拟化开销，出现容器技术，如Docker\cite{}和Rocket\cite{}都是基于容器技术的实现。
+
+%各种服务器融合技术对比
+
+
+\subsection{资源管理与服务质量保障}
+
+\begin{table}[tb]
+  \centering
+  \caption{资源管理与服务质量保障相关工作中识别出的竞争点}
+  \label{tab:contention}
+  \begin{tabular}{p{0.2\textwidth}p{0.7\textwidth}}
+    \toprule[1.5pt]
+      {\heiti 层次}     & {\heiti 竞争点}                                                                                      \\
+    \midrule[1pt]
+      数据中心          & Global file system \cite{dean_tail_2013}                                                                        \\
+      应用层            & Background daemon \cite{dean_tail_2013}, backup job \cite{yu_profiling_2011,dean_tail_2013}                     \\
+      网络协议栈        & Nagle's algorithm, limited buffers, delayed ACK caused RTO \cite{yu_profiling_2011},
+                          TCP congestion control \cite{alizadeh_data_2010,dong_less_2013},
+                          packet scheduling \cite{vamanan_deadline-aware_2012,wilson_better_2011,zats_detail:_2012,hong_finishing_2012},
+                          kernel sockets \cite{kozyrakis_reconciling_2014}                                                                \\
+      操作系统内核      & Lock contention \cite{Kapoor:2012:Chronos}, context switch, kernel scheduling,
+                          SMT load imbalance and IRQ imbalance \cite{kozyrakis_reconciling_2014}                                          \\
+      虚拟化层          & Virtual machine scheduling \cite{Xu:2013:Bobtail:,wang_impact_2010, Xu:2013:SMALL},
+                          network bandwidth \cite{wang_impact_2010,shieh_sharing_2011,Xu:2013:SMALL,jeyakumar_eyeq:_2013}                 \\
+      硬件              & Shared caches \cite{kozyrakis_reconciling_2014,Tang:2011:ISCA,kasture_ubik:_2014,sanchez_vantage:_2011,sanchez_zcache:_2010,qureshi_utility-based_2006,DelimitrouK13:ibench},
+                          memory \cite{Tang:2011:ISCA,yang_bubble-flux:_2013,muralidhara_reducing_2011,DelimitrouK13:ibench},
+                          NIC \cite{Radhakrishnan:2014:SENIC},
+                          I/O \cite{mesnier_differentiated_2011,DelimitrouK13:ibench}                                                     \\
+    \bottomrule[1.5pt]
+  \end{tabular}
+\end{table}
+
+Table \ref{tab:contention} illustrates prior work on eliminating contention at various layers.
+Companies like Google and Twitter now adopt advanced data center management frameworks
+(e.g., Borg\cite{borg:2015}, Omega \cite{Schwarzkopf_omega_2013}
+and Mesos \cite{Hindman:2011:Mesos}) to balance the trade-offs between
+resource utilization and applications' QoS.
+There are also a number of distributed techniques and OS kernel
+optimizations, such as multi-level priorities \cite{google_trace},
+scheduling \cite{delimitrou_paragon:_2013, delimitrou_quasar:_2014,  mars_heterogeneity_2011,
+kozyrakis_reconciling_2014, Novakovi:ATC2013}, backup-request \cite{dean_tail_2013},cgroup \cite{cgroup},
+and resource containers \cite{lxc}.
+
+Instead of presenting related work of all layers, in this section we focus on related work within a server.
+
+\textbf{Software based Partitioning} Researchers propose to leverage
+page-coloring technique to partition cache and DRAM.
+The key idea of page coloring is leveraging address mapping information to manage hardware
+resources.
+Lin \emph{et al.} \cite{lin_gaining_2008}
+and Tam \emph{et al.} \cite{tam_managing_2007} propose page-coloring based cache
+partitioning to address the cache contention problem.
+Liu \emph{et al.} \cite{liu_software_2012} present a practical page-corloring
+based DRAM bank partitioning approach to eliminate the memory bank-level
+interference and further propose an approach to cooperatively partition
+both cache and DRAM together \cite{Liu:2014:ISCA}.
+
+Although these software techniques
+are able to effectively partition shared cache and DRAM banks, there are two major
+concerns: first, they require reorganizing free-page lists and migrating pages
+when workload mixtures change. But the overhead is not negligible. 
+Although Liu \emph{et al.} \cite{Liu:2014:ISCA}
+design different kernel buddy systems for different workload mixtures,
+this approach requires significant kernel hacking efforts and has limited usage
+scenarios in production data centers. Second, contemporary processors 
+adopts hashing algorithms to map 
+physical address to cache index (e.g. Intel's Sandy Bridge). These hash algorithms are 
+usually unknown, so it is difficult to apply page-coloring
+approach to such systems.
+
+In contrast to page coloring, PARD's control planes can expose more underlying information (such as per DS-id cache miss rate and memory bandwidth) to firmware, operators thus
+can deploy better resource management policy with the information.
+
+
+\textbf{Hardware based techniques.} Kasture and Sanchez propose Ubik \cite{kasture_ubik:_2014},
+a cache partitioning policy that characterizes and leverages the transient
+behavior of latency-critical applications to maintain their target tail latency.
+Vantage \cite{sanchez_vantage:_2011} implements fine-grained cache partitioning
+using the statistical properties of Zcaches \cite{sanchez_zcache:_2010}.
+Utility-based cache partitioning (UCP) \cite{qureshi_utility-based_2006}
+strictly partitions the shared cache depending on the benefit of allocating
+different number of ways to each application.
+Muralidhara \emph{et al.} propose an application-aware memory channel
+partitioning (MCP) \cite{muralidhara_reducing_2011} to reduce memory system
+interference. However, these work usually focuses on only one type of resource while
+PARD is able to simultaneously manage all shared hardware resources winthin a server.
+
+Similar to PARD, NoHype \cite{keller_nohype:_2010} removes the virtualization layer
+and makes use of hardware virtualization extensions to partition a server into multiple
+submachines. However, this partitioning is statical.
+In contrast, PARD allows operators to dynamically partition a physical server into
+multiple LDoms. Furthermore, PARD supports ``\emph{trigger$\Rightarrow$action}''
+mechanism to deploy resourcing-on-demand resource management policies.
+
+
+\textbf{Architectural support for QoS.}
+Rafique \emph{et al.} \cite{Rafique:2006:ASO} propose a OS-driven hardware cache partitioning mechanism that tags
+cache requests and allows OS to adjust cache quota according to the tag.
+Sharifi \emph{et al.} \cite{sharifi_mete:_2011} further propose a feedback-based
+ control architecture for end-to-end on-chip resource management.
+Iyer \emph{et al.} make substantial contributions in architectural
+support for QoS \cite{herdrich_rate-based_2009, iyer_cqos:_2004, iyer_qos_2007,li_coqos:_2011,li_dynamic_2012}.
+The closest work to PARD is class-of-service based QoS architecture (CoQoS) \cite{li_dynamic_2012, li_coqos:_2011},
+which assigns a priority tag to each on-chip request and allows cache/DRAM/NoC to
+schedule the request according to the priority tag.
+
+\textbf{分布式环境保障服务质量}
+在分布式环境下，影响应用服务质量的因素主要是节点故障与干扰引起的长尾延迟，下面将从这两个方面介绍相关优化技术。
+软硬件故障：Jean Dean等人设计MapReduce[26]的初衷是使用由成百上千机器组成的集群来处理超大规模的数据，所以，要求必须MapReduce能很好地处理机器故障。MapReduce采用了任务重新调度或重新执行任务（backup task）的方法来解决节点故障或短暂忙碌。比如，如果一个机器的硬盘出了问题，读取数据的速度从30M/s降低到1M/s， MapReduce框架中发送backup task机制来减少这一类长尾延迟。Backup task机制通常只会占用比正常操作多几个百分点的计算资源，但能显著改善因为故障出现的长尾延迟。不过，类似于TCP重传机制，backup task的有效性会随着负载的提高而削弱。
+
+竞争共享资源引起的干扰：为了缓解干扰引起的长尾延迟现象，Dean等人[10]介绍了Google采用的缓解长尾延迟的技术，包括操作系统容器隔离技术[12]、应用优先级管理[13]、备份请求[11]、同步后台管理进程[11]等。R. Kapoor等人在文章[27]中提出了Chronos架构，以降低数据中心应用的长尾延迟。Chronos基于NIC上应用层数据包头字段的请求划分、应用实例负载均衡和NIC负载均衡模块的加载来消除关键通信路径上的共享资源，如内核和网络协议栈，以减少应用延迟以及相关干扰。
+
+这些研究工作从分布式架构上一定程度上缓解了“划分/聚合”模式应用（如搜索、大数据分析等）的长尾延迟，但对“依赖/串行”模式（在线购物、社交等）应用并不显著。另一方面，随着单个服务器节点的核数目不断增加，甚至未来“片上数据中心”[47]出现，单节点内同时运行的应用也会增加，那么干扰将会越来越严重，仅仅依赖分布式架构以及软件方法将无法保障性能隔离，如何从硬件上支持服务质量保障技术将是一个值得关注与研究的方向。
+
+
+
+\if 0
 处理应用服务质量与资源利用率的问题，在互联网公司、芯片厂商还是学术界都在想办法解决
 该问题：互联网公司方面，Baidu的Matrix项目、Google的Borg和Omega、Facebook的mesos系统
 都尝试在软件架构层面解决该问题；Intel最新发布的Xeon E5-v3系列芯片，ARM芯片等都对QoS
@@ -239,7 +412,7 @@ Google在分布式架构和软件层次采用了多种缓解长尾延迟的技�
 在数据中心层面，这需要从服务器节点内部、服务器之间通信以及分布式架构多个层次协同工作。
 近年来，学术界、工业界在这三个层次都不断努力。例如，近年来流行的Software Defined
 Networking（SDN）技术\cite{SDN}目标就是解决数据中心网络通信的管理、共享与性能隔离问题。
-Google在分布式架构上采用了超时发送备份请求同步后台管理进程等技术[11]来提高服务质量。
+Google在分布式架构上采用了超时发送备份请求同步后台管理进程等技术\cite{dean_achieving_2012}来提高服务质量。
 单节点内服务质量保障技术已成为短板。由于体系结构上不支持服务质量保障，而主流的软件
 隔离技术能对资源容量隔离起到较好的效果，但无法保障性能隔离，无法保障服务质量。
 总的来说，国内外在保障应用服务质量方面的研究包括单节点与分布式环境两个方面。
@@ -291,22 +464,11 @@ Linux Container[17]是一种轻量级虚拟化，通过在操作系统层面增�
 
 Ravi Iyer在体系结构支持服务质量方面做了一些有价值的工作，但主要集中在内存方面，并没有从整个系统角度去考虑。事实上，我们认为这个方向在未来会越来越重要，值得深入研究。
  
-1.2.2 分布式环境保障服务质量
-
-在分布式环境下，影响应用服务质量的因素主要是节点故障与干扰引起的长尾延迟，下面将从这两个方面介绍相关优化技术。
-
-软硬件故障：Jean Dean等人设计MapReduce[26]的初衷是使用由成百上千机器组成的集群来处理超大规模的数据，所以，要求必须MapReduce能很好地处理机器故障。MapReduce采用了任务重新调度或重新执行任务（backup task）的方法来解决节点故障或短暂忙碌。比如，如果一个机器的硬盘出了问题，读取数据的速度从30M/s降低到1M/s， MapReduce框架中发送backup task机制来减少这一类长尾延迟。Backup task机制通常只会占用比正常操作多几个百分点的计算资源，但能显著改善因为故障出现的长尾延迟。不过，类似于TCP重传机制，backup task的有效性会随着负载的提高而削弱。
-
-
-竞争共享资源引起的干扰：为了缓解干扰引起的长尾延迟现象，Dean等人[10]介绍了Google采用的缓解长尾延迟的技术，包括操作系统容器隔离技术[12]、应用优先级管理[13]、备份请求[11]、同步后台管理进程[11]等。R. Kapoor等人在文章[27]中提出了Chronos架构，以降低数据中心应用的长尾延迟。Chronos基于NIC上应用层数据包头字段的请求划分、应用实例负载均衡和NIC负载均衡模块的加载来消除关键通信路径上的共享资源，如内核和网络协议栈，以减少应用延迟以及相关干扰。
-
-这些研究工作从分布式架构上一定程度上缓解了“划分/聚合”模式应用（如搜索、大数据分析等）的长尾延迟，但对“依赖/串行”模式（在线购物、社交等）应用并不显著。另一方面，随着单个服务器节点的核数目不断增加，甚至未来“片上数据中心”[47]出现，单节点内同时运行的应用也会增加，那么干扰将会越来越严重，仅仅依赖分布式架构以及软件方法将无法保障性能隔离，如何从硬件上支持服务质量保障技术将是一个值得关注与研究的方向。
-
 
 \subsubsection*{隔离方法}
-\label{sec:multifig}
+\fi
 
-\section{软件定义网络SDN}
+\subsection{软件定义网络SDN}
 \label{sec:background:sdn}
 
 The Need for a New Network Architecture % [REF] "Software-Defined Networking: The New Norm for Networks" (PDF). White paper. Open Networking Foundation. April 13, 2012. Retrieved August 22, 2013.
