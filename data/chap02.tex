@@ -83,13 +83,13 @@ Amazon也发现其主页加载时间每增加100ms就会导致销售额下降1\%
 \begin{figure}
 \begin{minipage}{0.48\textwidth}
   \centering
-  \includegraphics[height=5cm]{intro/end2end-delay}
+  \includegraphics[height=5cm]{bg/end2end-delay}
   \caption[北美移动应用用户感知时延分布]{北美移动应用用户感知时延分布：平均延迟超过2秒且具有很大的波动性}
   \label{fig:end2end-delay}
 \end{minipage}\hfill
 \begin{minipage}{0.48\textwidth}
   \centering
-  \includegraphics[height=5cm]{intro/interact-apps}
+  \includegraphics[height=5cm]{bg/interact-apps}
   \caption[一个典型的交互式请求的5个阶段]{一个典型的交互式请求的5个阶段：C1->N1->S->N2->C2 \cite{timecard:2013}}
   \label{fig:interact-apps}
 \end{minipage}
@@ -113,7 +113,7 @@ Hadoop/MapReduce框架一统天下的模式将被打破，而实时流计算、�
 
 \begin{figure}[H]
   \centering
-  \includegraphics[height=6cm]{intro/batch-apps}
+  \includegraphics[height=6cm]{bg/batch-apps}
   \caption{典型的3类大数据处理需求以及相应的响应时间要求}
   \label{fig:batch-apps}
 \end{figure}
@@ -176,7 +176,7 @@ Google的数据中心技术一直处于领先地位，我们以Google为例分�
 \begin{figure}
 \begin{minipage}{0.57\textwidth}
   \centering
-  \includegraphics[height=4cm]{intro/google-util-2013}
+  \includegraphics[height=4cm]{bg/google-util-2013}
   \caption[Google数据中心CPU利用率分布（2013年）]
     {Google数据显示2013年1至3月在线应用数据中心CPU利用率平均只有30\%（左图），
      而批处理作业数据中心则能达到75\%的利用率（两个数据中心均为2万台服务器）}
@@ -184,7 +184,7 @@ Google的数据中心技术一直处于领先地位，我们以Google为例分�
 \end{minipage}\hfill
 \begin{minipage}{0.39\textwidth}
   \centering
-  \includegraphics[height=3.5cm]{intro/google-util-2006}
+  \includegraphics[height=3.5cm]{bg/google-util-2006}
   \caption[Google数据中心CPU利用率分布（2006年）]
     {Google在2006年数据中心（5000台服务器）6个月的CPU利用率分布}
   \label{fig:google-util-2006}
@@ -220,13 +220,13 @@ Google在分布式架构和软件层次采用了多种缓解长尾延迟的技�
 \begin{figure}
 \begin{minipage}{0.44\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{intro/google-resptime-dist}
+  \includegraphics[width=\textwidth]{bg/google-resptime-dist}
   \caption[Google某后台服务的响应时间分布]{Google某后台服务的响应时间分布\cite{Krushevskaja:2013}}
   \label{fig:google-resptime-dist}
 \end{minipage}\hfill
 \begin{minipage}{0.52\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{intro/long-tail-amplify}
+  \includegraphics[width=\textwidth]{bg/long-tail-amplify}
   \caption[长尾延迟放大效应]{长尾延迟放大效应\cite{dean_tail_2013}}
   \label{fig:long-tail-amplify}
 \end{minipage}
@@ -268,13 +268,33 @@ Google在分布式架构和软件层次采用了多种缓解长尾延迟的技�
 其中虚拟化、硬件分区与基于容器的轻量级虚拟化是三种目前应用最为广泛的服务器融合技术。
 
 %软件虚拟化
-虚拟化技术，全虚拟化VMWare ESX系统，
-内核支持的虚拟化KVM\cite{}，
-半虚拟化Xen\cite{barham_xen_2003}，实现Hypervisor感知的虚拟化，其主要动机是降低虚拟化开销，
-当前硬件上提出很多技术来支持虚拟化，当前开销已经很小，
-因此Xen这类虚拟化软件应用范围逐渐缩小。
-这也说明硬件支持降低软件开销是一个主流，本文提出了一种全硬件虚拟化，
-能够进一步降低软件干预，降低软件成本，同时消除由软件引入的开销。
+虚拟化技术最初由IBM在20世纪60年代提出，当时提出虚拟化的目的是为了提供系统的向后兼容性，
+以简化用户编程。而后，虚拟化一直是大型机使用的基本方式。
+VMware首先将虚拟化技术引入到基于x86的PC服务器领域，
+由于当时x86架构并没有提供任何虚拟化的支持，
+VMware使用二进制翻译\cite{}的方式实现操作系统内核中不支持虚拟化的指令执行，
+如图\ref{fig:compare-of-virt}(a)所示，实现对用户操作系统透明的虚拟化方案。
+这种基于二进制翻译的全虚拟化方案性能存在问题，
+因此Xen提出了半虚拟化（para-virtualization）\cite{barham_xen_2003}的概念，
+通过修改客户机操作系统，直接使用Hypercall的方式调用hypervisor
+（如图\ref{fig:compare-of-virt}(b)所示），实现部分功能，提高系统性能。
+在虚拟化产业发展起来后，各个硬件厂商分别推出新的硬件功能以更好的支持虚拟化，
+如Intel的VT-x技术和AMD的AMD-V技术，都在现有的体系结构下增加了根特权级，
+也支持虚拟化操作，如图\ref{fig:compare-of-virt}(c)所示。
+同时，其它一些用于提高虚拟化性能的硬件技术，如EPT、VPID、虚拟化I/O-APIC等，
+也逐渐被开发出来，随着虚拟化技术性能的不断提高，当前在PC服务器领域，
+虚拟化技术已经成为数据中心内被普遍使用的技术。
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{bg/compare-of-virtualization}
+  \caption[三种不同类型虚拟化技术的对比]{三种不同类型虚拟化技术的对比：
+    （a）无虚拟化，直接执行用户与OS请求；
+    （b）全虚拟化，直接执行用户请求，二进制翻译执行OS请求；
+    （c）半虚拟化，直接执行用户请求，修改GuestOS通过Hypercall实现特权指令；
+    （d）硬件辅助虚拟化，直接执行用户请求，硬件支持OS特权指令直接陷入到VMM。}
+  \label{fig:compare-of-virt}
+\end{figure}
 
 %硬件虚拟化
 软件虚拟化技术其主要问题是开销，因于需要Hypervisor的干预。
@@ -328,7 +348,12 @@ and resource containers \cite{lxc}.
 
 Instead of presenting related work of all layers, in this section we focus on related work within a server.
 
-\textbf{Software based Partitioning} Researchers propose to leverage
+\textbf{软件划分技术} 页着色技术（page coloring）是一种以软件方式控制内存物理页映射的方法，
+通常被用作共享末级缓存与DRAM的划分，其核心思路是通过控制地址映射信息实现硬件资源的管理。
+Lin和Tam等人提出基于页着色技术的缓存容量划分，以及解决缓存竞争问题
+基于该技术可以实现对共享末级缓存和DRAM的划分，
+
+Researchers propose to leverage
 page-coloring technique to partition cache and DRAM.
 The key idea of page coloring is leveraging address mapping information to manage hardware
 resources.
@@ -339,6 +364,8 @@ Liu \emph{et al.} \cite{liu_software_2012} present a practical page-corloring
 based DRAM bank partitioning approach to eliminate the memory bank-level
 interference and further propose an approach to cooperatively partition
 both cache and DRAM together \cite{Liu:2014:ISCA}.
+
+页着色（Page Coloring）[33]是一种以软件方式控制内存物理页映射到处理器缓存上的技术,映射到同一缓存块中的物理页对应同一颜色。基于页着色技术可以实现对共享二级缓存的划分(Partition)[36]，能缓解应用在共享二级缓存上的干扰。Cho等人[34]使用Page Coloring技术来管理共享缓存。Tam等人[35]在Linux内核上实现了基于页面着色的缓存划分策略。而对于DRAM系统，也可以使用页着色技术对共享DRAM颗粒进行划分[37][39]，例如，Liu等人[40]在Linux内核上实现了基于页着色的DRAM颗粒划分。北京大学李晓明教授团队也在这方面做了很多工作[41][42][43]，研究利用页着色技术在虚拟环境下对共享Cache进行了划分。页着色技术能缓解一些粗粒度共享资源层次的干扰，但无法解决微体系结构的干扰，比如共享队列等，并且使用不灵活。总结而言，软件隔离技术能对资源容量隔离起到较好的效果，但无法保障性能隔离，无法保障服务质量。
 
 Although these software techniques
 are able to effectively partition shared cache and DRAM banks, there are two major
@@ -353,8 +380,11 @@ physical address to cache index (e.g. Intel's Sandy Bridge). These hash algorith
 usually unknown, so it is difficult to apply page-coloring
 approach to such systems.
 
-In contrast to page coloring, PARD's control planes can expose more underlying information (such as per DS-id cache miss rate and memory bandwidth) to firmware, operators thus
-can deploy better resource management policy with the information.
+%In contrast to page coloring, PARD's control planes can expose more underlying information (such as per DS-id cache miss rate and memory bandwidth) to firmware, operators thus
+%can deploy better resource management policy with the information.
+基于以上分析，可以发现诸如页着色技术这类软件划分方式并不能提供足够的细粒度的资源管理能力，
+硬件需要向上层提供的接口，将更多硬件信息与控制能力暴露给软件，
+管理员才能够利用这些信息实现更为灵活、高效的硬件资源管理。
 
 
 \textbf{Hardware based techniques.} Kasture and Sanchez propose Ubik \cite{kasture_ubik:_2014},
@@ -454,7 +484,6 @@ Google在分布式架构上采用了超时发送备份请求同步后台管理�
 
 Linux Container[17]是一种轻量级虚拟化，通过在操作系统层面增添虚拟服务器功能，操作系统内核能够提供多个互相独立的用户态实例。每个用户态实例对于它自己的用户来说都像是一台独立的计算机，有自己独立的网络、文件系统、库函数和系统设置等。操作系统级虚拟化技术的优点是性能开销较小，不需要硬件的特别支持，而且能为用户态实例之间提供一定的隔离性，所以被广泛地应用在虚拟主机服务器环境中。然而，容器虚拟化技术的虚拟对象不是实际的物理资源(处理器、内存和外设)，而是从用户角度出发而抽象的操作系统内部资源资，如CPU时间，内存，I/O带宽等，但如图1.5所示，Container技术对性能隔离效果并不理想。事实上，在性能隔离方面也有相关研究， Rice大学的Druschel等人[21]设计了Resource Container系统, 实现了单台物理机上多个应用间的性能隔离和CPU细粒度资源分配机制支持,然而局部隔离并不能保证全局隔离，Druschel 等人又设计了Cluster Container系统[22],以解决应用在集群范围内的隔离问题。但十几年前，单机核数目非常小，如今单节点已经有几十个核，同时运行的应用也增加了一个数量级，出现了很多新的挑战。
 
-页着色（Page Coloring）[33]是一种以软件方式控制内存物理页映射到处理器缓存上的技术,映射到同一缓存块中的物理页对应同一颜色。基于页着色技术可以实现对共享二级缓存的划分(Partition)[36]，能缓解应用在共享二级缓存上的干扰。Cho等人[34]使用Page Coloring技术来管理共享缓存。Tam等人[35]在Linux内核上实现了基于页面着色的缓存划分策略。而对于DRAM系统，也可以使用页着色技术对共享DRAM颗粒进行划分[37][39]，例如，Liu等人[40]在Linux内核上实现了基于页着色的DRAM颗粒划分。北京大学李晓明教授团队也在这方面做了很多工作[41][42][43]，研究利用页着色技术在虚拟环境下对共享Cache进行了划分。页着色技术能缓解一些粗粒度共享资源层次的干扰，但无法解决微体系结构的干扰，比如共享队列等，并且使用不灵活。总结而言，软件隔离技术能对资源容量隔离起到较好的效果，但无法保障性能隔离，无法保障服务质量。
 
 软硬件调度：在多核微体系结构上，由于共享片上和片外资源的竞争会引起跨核应用之间的干扰。Jason Mars和Neil Vachharajani等人提出了竞争感知的轻量级运行时环境CAER[25]，能在提高利用率的同时减少由竞争引起的跨核干扰问题。他还和Lingjia Tang等人在文章[24]还介绍了CiPE框架，可以直接用于测量和量化多核结构下应用的跨核干扰敏感度。Jason Mars等人还设计了Bubble-Up[23]机制，通过使用气泡（Bubble）来代表内存子系统的可变压力情况，能准确预测在内存子系统中竞争共享资源而导致的性能下降。Lingjia Tang等人在文章[29]提出了一种动静结合的编译方法ReQos，在确保高优先级应用的服务质量的同时让低优先级应用也可以自适应地执行。ReQoS包含一种由配置文件引导的编译技术，来识别低优先级应用中有争议的代码段。这些调度相关的工作，在具有大规模真实应用的Google“混布”数据中心里，使用该机制能在保证延迟敏感性应用的服务质量的同时，能显著提高50%~90%的资源利用率。但这些工作属于Ad-hoc类型，针对特定场景有效，并没有从根本上解决问题。
 
