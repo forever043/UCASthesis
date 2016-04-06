@@ -91,18 +91,48 @@ CMT技术允许给处理器核发出的访存请求打标签，另其在共享�
 
 \subsection{总线技术}
 
-\subsubsection*{QPI/HT总线}
+总线是连接计算内所有硬件部件的数据通路，从早期的并行总线，到现在流行的点对点总线，
+不同类型的总线具有不同的结构，而计算机系统的架构很大程度上决定于其所选择的总线架构。
+本节选取了三种在不同场景下常用的总线结构：
+（1）片内AMBA AXI总线；
+（2）系统互连QPI/HT总线；
+和（3）I/O总线PCI-E，
+介绍其基本架构与原理，在下一节将分析如何在这些总线上扩展以支持标签化地址空间的标签传播。
 
-\subsubsection*{PCI-E总线}
+\textbf{AXI总线} AMBA eXtend Interconnect（AXI）总线是由ARM公司提出的开放式片内总线协议，
+通常被用在SoC芯片内。
 
-\subsubsection*{AXI总线}
+\textbf{QPI/HT总线} QuickPath Interconnect（QPI）和HyperTransport（HT）总线分别是由
+Intel和AMD主导提出的系统互连总线，主要用于连接处理器与I/O芯片组。
+两者具有类似的特性，包括：高带宽、低延迟、点对点互连和基于包的数据传输，
+下文将主要以HT总线为例介绍其架构与原理。
+
+\textbf{PCI-E总线}
+
+AXI总线与QPI/HT总线在设计时都考虑了一致性支持，实现了基于侦听和目录的一致性协议，
+
+I/O MMU实现地址空间划分，防止I/O设备访问越界。
+
 
 \subsection{I/O中断}
 % LegacyIntr => MSI
+在计算机内，除数据通路外，还存在一定非常重要的通路，用于在处理器与I/O设备之间传递中断信息，
+早期的计算系统中使用独立的中断线来传递中断信息，这种设计需要非常多的额外引脚，
+同时由于其硬连线的特性，并不能灵活的工作。
+
+当前的中断系统设计直接使用数据总线来传递中断信息，如PCI-E标准中为的Messag Passing Interrupt（MSI），使用对特殊地址的标准访存请求实现中断信息的传递，其基本原理如图\ref{}所示，
+XXXX
+
+MSI的出现，Intel在其芯片组中增加了I/O-APIC的设计，实现中断可重编程
+
+随着虚拟化技术的发展，提供了I/O-APIC的虚拟化支持，能够将不同的
+
+当前的中断架构已经很好的支持的应用区分，本章后续章节将讨论如何在现有的中断架构下，
+实现标签化划分。
+
 
 \subsection{资源隔离技术}
 % VPID, EPT, I/O MMU, Virtualized I/O-APIC, SR-IOV
-
 
 最早被隔离的资源是CPU，通过保存寄存器状态，并在进程切换时切换寄存器，实现CPU资源共享。
 随着内存需求的增加，虚拟内存出现，实现用户地址空间的隔离。
@@ -171,14 +201,76 @@ CAT技术为OS/VMM提供了控制末级共享缓存容量的功能，如图\ref{
 \end{figure}
 
 
-\section{标签与标签源}
+
+\section{标签机制}
+
+在之前的章节中已经对PARD的标签机制进行了介绍，简单来说其核心包括两点：
+一是如何为计算机中的请求\textbf{标记}上正确的标签，
+二是保证标签在整个计算机系统中正确\textbf{传播}。
+但在具体实现标签机制时，仍然有一些问题需要考虑，
+本节主要讨论其中的标记问题，传播问题将在下一节中讨论。
 
 
-\subsection{标签与隔离粒度}
+\subsection{标签粒度与格式}
 
-如何划分地址空间：虚拟机、容器、进程、etc...
+PARD对用户提供了逻辑域抽象，因此简单的标签方案可以直接将一个逻辑域映射到为一个标签，
+以逻辑域为粒度分配系统内的硬件资源（资源划分），
+并对共享硬件资源的访问进行控制（性能划分），
+本文所设计的FPGA原型系统（参见第\ref{chap:impl}章）选择了该方案进行实现。
+另一些应用，需要在逻辑内也实现性能划分，
+即运行在同一个逻辑域的不同应用具有不同的资源访问级别，
+基于容器的技术的轻量级虚拟化即属于该类型，运行在不同容器中的应用虽然具有不同的优先级，
+但它们能够访问相同的资源。
+为了支持这种类型的应用，本文提出了两级标签的概念，如图\ref{fig:tagging-format}所示，
+将标签划分为资源域与性能域两部分，
+不同资源域的应用在硬件资源上相互隔离，且具有不同的性能策略；
+具有相同资源域的应用共享同一份硬件资源，
+但这些共享的硬件资源使用不同的性能策略来处理来自不同性能域的应用。
 
-\subsection{标签寄存器}
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{label/tagging-format}
+  \caption[标签格式]{标签格式：分为简单标签与两级标签，
+    简单标签直接将逻辑域（LDom ID）映射为标签，
+    两级标签将标签分为资源域（Resource ID）和性能域（Perf ID）两部分。
+    只有两级标签的性能域部分可以由用户进行修改，
+    简单标签或两级标签的资源域（图中阴影部分）只能通过PRM进行修改，
+    以保证硬件资源分配不会出现冲突。}
+  \label{fig:tagging-format}
+\end{figure}
+
+\subsection{如何为请求打标签}
+在确定了标签的格式与内容后，需要将该标签打到对应的请求上。
+在计算机中存在两个请求发起源，即处理器核与I/O设备的DMA引擎，
+需要在这两个请求源将应用标签标记到请求上。
+% 外部标签也在该节讨论
+
+\begin{figure}[b]
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[width=0.9\textwidth]{label/tagging-core-request}
+  \caption{为处理器核请求打标签}
+  \label{fig:tagging-core-request}
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[width=0.9\textwidth]{label/tagging-io-request}
+  \caption{为I/O请求打标签}
+  \label{fig:tagging-io-request}
+\end{minipage}
+\end{figure}
+
+\textbf{处理器核} 为实现处理器核发出的请求的标记，
+需要在处理器核内增加一个标签寄存器，将当前正在使用该处理器核的应用标签保存在该寄存器中。
+对于简单标签模式，该寄存器对处理器核不可见，只能通过PRM在逻辑域切换时进行修改；
+对于两级标签模式，该寄存器的性能域部分对处理器可见，
+可以由逻辑域内的操作系统在进行切换时进行修改，而资源域与简单模式下相同，只能由PRM进行修改。
+图\ref{fig:tagging-core-request}给出了两级标签模式下，处理器核的请求标记过程：
+处理器核发出的请求与标签寄存器的值进行组成，形成带有标签的请求发送到外部；
+标签寄存器的资源域部分只能由PRM进行修改，性能域部分可以通过处理器核进行修改。
+
+\textbf{I/O设备} 由于两级标签机制的存在，\ref{fig:tagging-io-request}
+使得同一个I/O设备可能被两个性能域标签不同的应用所共享，
 
 
 \section{标签传播}
@@ -192,6 +284,11 @@ CAT技术为OS/VMM提供了控制末级共享缓存容量的功能，如图\ref{
 \subsection{总线与协议转换}
 
 不同总线上如何实现地址空间
+
+\subsection{一致性协议}
+
+基于snoop的一致性协议，在处理snoop请求时，需要检查其标签，是否与当前标签一致
+基于MESI协议，需要在目录中增加标签项，
 
 \subsection{多阶段写回请求}
 
