@@ -7,8 +7,116 @@
 \chapter{PARD原型系统实现与验证}
 \label{chap:impl}
 
+%FPGA原型设计目标
 上一章已经讨论过如何在X86平台上实现PARD，本章讨论如何在gem5全系统模拟器上将PARD机制
 实现其中。验证功能可行性，
+
+
+\section{基础系统选择}
+
+实现PARD原型系统的第一个工作是选择一个合适的基础系统，
+PARD对基础系统有以下需求：
+
+\begin{enumerate}
+  \item 能够在FPGA环境下综合；
+  \item 独立系统，不依靠任何辅助设施即可运行；
+  \item 丰富的I/O设备支持，支持Xilinx VC709开发板所提供的外设，如以太网和PCI-Express；
+  \item 能够运行Linux操作系统；
+  \item 频率/性能足够运行常见Benchmark应用，如SpecCPU、PARSEC等）；
+  \item 可以运行典型的数据中心应用，如memcached、httpd等；
+  \item 具备完整的软件开发环境；
+\end{enumerate}
+
+在开源领域虽然有大量可用的处理器软核，如Oracle OpenSPARC T1\cite{sparct1}、
+RISC-V\cite{riscv}、OpenRISC 1200\cite{or1200}、LEON3\cite{leon3}等，
+但这些软核并不能满足PARD原型系统的需求。
+其中OpenSPARC T1和RISC-V目前的FPGA实现并不是一个独立系统，
+需要额外的处理器（如MicroBlaze或ARM）作代理以实现访存与I/O操作；
+OpenRISC 1200的软硬件环境支持并不完整，
+LEON3是目前开源的处理器软核中最为合适的选择，但其对linux内核的支持并不好，
+目前只能运行早期的内核版本，同时软件环境也比较老旧，运行数据中心应用存在一定的困难。
+一些FPGA厂商也提供了可配置的处理器核，
+如Xilinx的MicroBlaze\cite{microblaze}和ARM\cite{zynq}，以及Altera的NIOS II\cite{niosii}。
+
+本文最终选择了Xilinx的MicroBlaze作为基础系统，
+其性能
+
+
+
+
+
+\subsection{CPU/System}
+\subsection{DSid集成}
+\subsection{AMP系统实现}
+
+%包含踩过的坑，如基础系统选择，最初的OpenSPARC方案+寄存器修改 => MicroBlaze外包一层
+
+
+\section{PARD原型系统架构}
+
+
+\section{PRM与控制平面网络设计}
+
+为何选择I2C，有何替代
+
+如何改造I2C成为双向网络
+
+连接多个控制平台
+
+触发表中断传播机制
+
+
+\section{系统设计与关键技术}
+
+\subsection{标签集成}
+
+\subsection{通用控制平面设计}
+
+\subsubsection*{表设计}
+\subsubsection*{状态表更新逻辑}
+\subsubsection*{触发表逻辑}
+
+\subsection{通用数据平面设计}
+
+\subsection{系统集成}
+
+\subsubsection*{系统集成：处理器核}
+
+\subsubsection*{系统集成：共享末级缓存}
+
+\subsubsection*{系统集成：内存控制器}
+
+\subsubsection*{系统集成：I/O子系统}
+
+
+\subsection{小结}
+包含踩过的坑，如基础系统选择，最初的OpenSPARC方案+寄存器修改 => MicroBlaze外包一层
+FPGA实现中遇到的问题
+
+
+\section{软件栈设计}
+
+
+
+\section{性能评估}
+
+\subsection{区分化服务}
+
+\subsection{性能隔离}
+
+\subsection{策略生效时间}
+
+并讨论如何实现ms级控制
+
+\subsection{实际应用测试}
+
+\subsection{开销}
+
+
+\section{小结}
+
+
+\if 0	% 模拟器移动到第4、5章相应的章节
 
 \section{模拟器实现}
 \subsection{基本配置}
@@ -44,69 +152,5 @@ PRM + Program/Trigger
 
 \subsection{小结}
 
-
-\section{PARD FPGA原型系统}
-
-\section{FPGA原型设计目标}
-
-
-\section{系统设计与关键技术}
-
-\subsection{基础系统选择}
-
-\subsubsection*{CPU/System}
-\subsubsection*{DSid集成}
-\subsubsection*{AMP系统实现}
-
-
-\subsection{PRM系统设计}
-
-
-
-\subsection{CPN总线选择}
-
-为何选择I2C，有何替代
-
-如何改造I2C成为双向网络
-
-连接多个控制平台
-
-触发表中断传播机制
-
-
-\subsection{控制平台设计变化}
-
-\subsubsection*{表设计}
-\subsubsection*{状态表更新逻辑}
-\subsubsection*{触发表逻辑}
-
-
-\subsection{性能控制相关}
-\subsubsection*{Core修改与控制面设计}
-\subsubsection*{Cache修改与控制面设计}
-\subsubsection*{MIG修改与控制面设计}
-
-\subsection{小结}
-包含踩过的坑，如基础系统选择，最初的OpenSPARC方案+寄存器修改 => MicroBlaze外包一层
-FPGA实现中遇到的问题
-
-\subsection{FPGA原型的最终形态}
-
-
-\section{性能评估}
-
-\subsection{区分化服务}
-
-\subsection{性能隔离}
-
-\subsection{策略生效时间}
-
-并讨论如何实现ms级控制
-
-\subsection{实际应用测试}
-
-\subsection{开销}
-
-
-\section{小结}
+\fi
 

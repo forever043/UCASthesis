@@ -131,6 +131,15 @@ PARD选取与了逻辑域类似的方案，将一个物理系统划分为多个�
 分布式RPC与网络功能虚拟化（NFV）、MapReduce计算框架。
 分布式RPC分为框架与服务两部分，
 
+网络功能虚拟化的结构如图\ref{fig:nfv-example}所示，使用服务器实现网络功能，
+在同一台服务器上通用虚拟机等方式实现多个网络功能，通过内部网络连接，
+实现特定网络功能。
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.8\textwidth]{arch/nfv-example.pdf}
+  \caption{NFV结构示例\cite{etsi_nfv_2014}。\textbf{TODO：增加如何将该结构映射到PARD上}}
+  \label{fig:nfv-example}
+\end{figure}
 
 \subsection{应用示例：用户与管理员视角}
 

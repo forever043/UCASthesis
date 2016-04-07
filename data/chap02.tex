@@ -303,37 +303,20 @@ SPARC系统的Logical Domain\cite{}，
 
 %轻量级虚拟化
 为了降低虚拟化开销，出现容器技术，如Docker\cite{}和Rocket\cite{}都是基于容器技术的实现。
+图\ref{fig:docker-overview}给出了Docker的架构，可以
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.5\textwidth]{bg/docker-overview}
+  \caption[容器虚拟化结构示意（Docker）]{容器虚拟化结构示意（Docker）：
+    容器之间共享操作系统内核，但应用、运行时环境是隔离的}
+  \label{fig:docker-overview}
+\end{figure}
 
 %各种服务器融合技术对比
 
 
 \subsection{资源管理与服务质量保障}
-
-\begin{table}[tb]
-  \centering
-  \caption{资源管理与服务质量保障相关工作中识别出的竞争点}
-  \label{tab:contention}
-  \begin{tabular}{p{0.2\textwidth}p{0.7\textwidth}}
-    \toprule[1.5pt]
-      {\heiti 层次}     & {\heiti 竞争点}                                                                                      \\
-    \midrule[1pt]
-      数据中心          & Global file system \cite{dean_tail_2013}                                                                        \\
-      应用层            & Background daemon \cite{dean_tail_2013}, backup job \cite{yu_profiling_2011,dean_tail_2013}                     \\
-      网络协议栈        & Nagle's algorithm, limited buffers, delayed ACK caused RTO \cite{yu_profiling_2011},
-                          TCP congestion control \cite{alizadeh_data_2010,dong_less_2013},
-                          packet scheduling \cite{vamanan_deadline-aware_2012,wilson_better_2011,zats_detail:_2012,hong_finishing_2012},
-                          kernel sockets \cite{kozyrakis_reconciling_2014}                                                                \\
-      操作系统内核      & Lock contention \cite{Kapoor:2012:Chronos}, context switch, kernel scheduling,
-                          SMT load imbalance and IRQ imbalance \cite{kozyrakis_reconciling_2014}                                          \\
-      虚拟化层          & Virtual machine scheduling \cite{Xu:2013:Bobtail:,wang_impact_2010, Xu:2013:SMALL},
-                          network bandwidth \cite{wang_impact_2010,shieh_sharing_2011,Xu:2013:SMALL,jeyakumar_eyeq:_2013}                 \\
-      硬件              & Shared caches \cite{kozyrakis_reconciling_2014,Tang:2011:ISCA,kasture_ubik:_2014,sanchez_vantage:_2011,sanchez_zcache:_2010,qureshi_utility-based_2006,DelimitrouK13:ibench},
-                          memory \cite{Tang:2011:ISCA,yang_bubble-flux:_2013,muralidhara_reducing_2011,DelimitrouK13:ibench},
-                          NIC \cite{Radhakrishnan:2014:SENIC},
-                          I/O \cite{mesnier_differentiated_2011,DelimitrouK13:ibench}                                                     \\
-    \bottomrule[1.5pt]
-  \end{tabular}
-\end{table}
 
 Table \ref{tab:contention} illustrates prior work on eliminating contention at various layers.
 Companies like Google and Twitter now adopt advanced data center management frameworks
@@ -426,6 +409,32 @@ schedule the request according to the priority tag.
 竞争共享资源引起的干扰：为了缓解干扰引起的长尾延迟现象，Dean等人[10]介绍了Google采用的缓解长尾延迟的技术，包括操作系统容器隔离技术[12]、应用优先级管理[13]、备份请求[11]、同步后台管理进程[11]等。R. Kapoor等人在文章[27]中提出了Chronos架构，以降低数据中心应用的长尾延迟。Chronos基于NIC上应用层数据包头字段的请求划分、应用实例负载均衡和NIC负载均衡模块的加载来消除关键通信路径上的共享资源，如内核和网络协议栈，以减少应用延迟以及相关干扰。
 
 这些研究工作从分布式架构上一定程度上缓解了“划分/聚合”模式应用（如搜索、大数据分析等）的长尾延迟，但对“依赖/串行”模式（在线购物、社交等）应用并不显著。另一方面，随着单个服务器节点的核数目不断增加，甚至未来“片上数据中心”[47]出现，单节点内同时运行的应用也会增加，那么干扰将会越来越严重，仅仅依赖分布式架构以及软件方法将无法保障性能隔离，如何从硬件上支持服务质量保障技术将是一个值得关注与研究的方向。
+
+\begin{table}[tb]
+  \centering
+  \caption{资源管理与服务质量保障相关工作中识别出的竞争点}
+  \label{tab:contention}
+  \begin{tabular}{p{0.2\textwidth}p{0.7\textwidth}}
+    \toprule[1.5pt]
+      {\heiti 层次}     & {\heiti 竞争点}                                                                                      \\
+    \midrule[1pt]
+      数据中心          & Global file system \cite{dean_tail_2013}                                                                        \\
+      应用层            & Background daemon \cite{dean_tail_2013}, backup job \cite{yu_profiling_2011,dean_tail_2013}                     \\
+      网络协议栈        & Nagle's algorithm, limited buffers, delayed ACK caused RTO \cite{yu_profiling_2011},
+                          TCP congestion control \cite{alizadeh_data_2010,dong_less_2013},
+                          packet scheduling \cite{vamanan_deadline-aware_2012,wilson_better_2011,zats_detail:_2012,hong_finishing_2012},
+                          kernel sockets \cite{kozyrakis_reconciling_2014}                                                                \\
+      操作系统内核      & Lock contention \cite{Kapoor:2012:Chronos}, context switch, kernel scheduling,
+                          SMT load imbalance and IRQ imbalance \cite{kozyrakis_reconciling_2014}                                          \\
+      虚拟化层          & Virtual machine scheduling \cite{Xu:2013:Bobtail:,wang_impact_2010, Xu:2013:SMALL},
+                          network bandwidth \cite{wang_impact_2010,shieh_sharing_2011,Xu:2013:SMALL,jeyakumar_eyeq:_2013}                 \\
+      硬件              & Shared caches \cite{kozyrakis_reconciling_2014,Tang:2011:ISCA,kasture_ubik:_2014,sanchez_vantage:_2011,sanchez_zcache:_2010,qureshi_utility-based_2006,DelimitrouK13:ibench},
+                          memory \cite{Tang:2011:ISCA,yang_bubble-flux:_2013,muralidhara_reducing_2011,DelimitrouK13:ibench},
+                          NIC \cite{Radhakrishnan:2014:SENIC},
+                          I/O \cite{mesnier_differentiated_2011,DelimitrouK13:ibench}                                                     \\
+    \bottomrule[1.5pt]
+  \end{tabular}
+\end{table}
 
 
 
