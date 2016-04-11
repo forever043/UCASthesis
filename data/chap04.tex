@@ -131,17 +131,120 @@ MSI的出现，Intel在其芯片组中增加了I/O-APIC的设计，实现中断�
 实现标签化划分。
 
 
-\subsection{资源隔离技术}
-% VPID, EPT, I/O MMU, Virtualized I/O-APIC, SR-IOV
+\subsection{资源共享技术}
+% 地址空间隔离：VPID，EPT，I/O MMU
+% I/O设备共享：SR-IOV
+随着多租户/虚拟化使用模式的普及，服务器资源共享成为主流。
+在现有计算机体系结构下实现资源共享，主要需要考虑两个方面的问题，
+一是地址空间的隔离，二是I/O设备的共享，
+本节主要讨论现有的资源共享技术如何实现地址空间的隔离与I/O设备的共享。
 
-最早被隔离的资源是CPU，通过保存寄存器状态，并在进程切换时切换寄存器，实现CPU资源共享。
-随着内存需求的增加，虚拟内存出现，实现用户地址空间的隔离。
-虚拟化的出现，对虚拟机访存性能提出需求，体系结构也做出了相应的更改。
-以Intel为例，为更好的支持虚拟化环境，其VMX技术增加了VCPU抽象，
+现有硬件厂商为虚拟化环境提供了大量的硬件支持，以提升虚拟化场景下的应用性能。
+以Intel为例，其提出了VPID、EPT、I/O MMU技术实现地址空间隔离。
+在Intel的VMX架构下，使用虚拟处理器标识符（VPID）和扩展页表机制（EPT）
+来支持虚拟化场景下的地址映射，即线性地址（Linear Address）=>
+客户机物理地址（guest-physical address）=>主机物理地址（host-physical address）
+三级地址映射。
 
-单一地址空间 => 虚拟内存（多地址空间，保护）=> 虚拟化，tagged-TLB，VT技术，多租户
-                                            => 容器技术
-对计算机的使用趋势是从单一应用到多应用，
+\textbf{Virtual Processor IDs (VPID)}\quad
+该技术用于管理线性地址到客户机物理地址的映射映射，
+在支持VPID技术之前，由于VMM并不知道Cache Line或TLB表项与虚拟机之间的对应关系，
+因每次在切换虚拟机时，都需要将TLB和Cache的所有表项无效。
+VPID技术通过在这些CPU硬件结构（TLB、Cache）中增加了虚拟机标识，
+使得在虚拟机切换时只无效必要的表项，降低虚拟机临时切换时重填这些表项的开销。
+
+\textbf{扩展页表机制（EPT）}\quad
+Intel在其IA-32架构下使用页表机制实现线性地址到客户机物理地址的映射。
+而EPT机制在基础上增加了一级额外的地址映射，用于支持虚拟化场景，
+实现从客户机物理地址到主机物理地址的映射，该地址最终被用于访问主机上的物理内存。
+通过这一机制，虚拟内的客户机操作系统可以自行修改页表完成缺页中断的处理，
+实现页表虚拟化，使得客户机页表相关的操作无需VMM的参与，降低地址变换的开销。
+图\ref{fig:intel-ept-example}给出了EPT的操作流程。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{label/intel-ept-example}
+  \caption[Intel Extended Page Table技术示意图]{
+    Intel Extended Page Table技术示意图}
+  \label{fig:intel-ept-example}
+\end{figure}
+
+\textbf{I/O MMU}\quad
+IOMMUs are hardware devices that translate
+device DMA addresses to proper machine
+physical addresses.
+which can be used to control how a DMA operation
+from a device accesses memory
+Intel、AMD和IBM等厂商都提出了自己的I/O MMU方案\cite{intel-iommu, amd-iommu, ibm-iommu}，
+下文以Intel的I/O MMU为例介绍其功能。
+
+Intel Virtualization Technology for Directed
+I/O Architecture provides DMA remapping
+hardware that adds support for isolation of device
+accesses to memory as well as translation
+functionality [2]. The DMA remapping hardware
+intercepts device attempts to access system
+memory. Then, it uses I/O page tables to
+determine whether the access is allowed and
+its intended location. The translation structure
+is unique to an I/O device function (PCI bus,
+device, and function) and is based on a multilevel
+page table. Each I/O device is given the
+DMA virtual address space same as the physical
+address space or a purely virtual address
+space defined by software. The DMA remapping
+hardware uses a context-entry table that is
+indexed by PCI bus, device and function to find
+the root of the address translation table. The
+hardware may cache context-entries as well as
+the effective translations (IOTLB) to minimize
+the overhead incurred for fetching them from
+memory. DMA remapping faults detected by
+the hardware are processed by logging the fault
+information and reporting the faults to software
+through a fault event (interrupt).
+
+
+
+PCI-E标准中使用SR-IOV技术实现I/O设备的共享。
+
+\textbf{Single-Root I/O Virtualization (SR-IOV)}
+The Single-Root I/O Virtualization (SR-IOV)
+feature is a PCI Special Interest Group (PCISIG)
+specification. Intel, along with other
+industry leaders, is actively participating in
+the PCI-SIG working group to define new
+standards for enhancing virtualization capabilities
+of I/O devices. SR-IOV provides a
+standard mechanism for devices to advertise
+their ability to be simultaneously shared
+among multiple virtual machines. It also
+allows for the partitioning of a PCI function
+into many virtual interfaces for the purpose
+of sharing the resources of a PCI Express*
+(PCIe*) device in a virtual environment. Intel
+plans to support the SR-IOV specification in
+its networking devices.
+Each virtual function can support a unique
+and separate data path for I/O-related functions
+within the PCIe hierarchy. Use of SRIOV
+with a networking device, for example,
+allows the bandwidth of a single port (function)
+to be partitioned into smaller slices that
+may be allocated to specific virtual machines,
+or guests, via a standard interface. A common
+methodology for configuration and management
+is also established to further
+enhance the interoperability of various
+devices in a PCIe hierarchy. This resource
+sharing can increase the total utilization of
+any given resource presented on an SR-IOVcapable
+PCIe device, potentially reducing the
+cost of a virtual system.
+Intel-enabled NICs are:
+• Intel® 82576 Gigabit Ethernet Controller
+• Intel® 82599
+
 
 \subsection{性能隔离技术}
 % CAT/CMT
@@ -269,6 +372,7 @@ PARD对用户提供了逻辑域抽象，因此简单的标签方案可以直接�
 图\ref{fig:tagging-core-request}给出了两级标签模式下，处理器核的请求标记过程：
 处理器核发出的请求与标签寄存器的值进行组成，形成带有标签的请求发送到外部；
 标签寄存器的资源域部分只能由PRM进行修改，性能域部分可以通过处理器核进行修改。
+%处理器核共享场景（0.1个处理器核）也许需要具体一下
 
 \textbf{I/O与中断请求}\quad
 对于I/O访问，有两种访问模式，即Programmed-I/O（PIO）和Directed Memory Access（DMA)。
@@ -297,6 +401,7 @@ DMA引擎将标签寄存器中的值附加到DMA描述符读取请求中。
 这样当DMA引擎将要产生一个中断时，把应用标签标记到中断请求中，然后发往APIC。
 APIC使用请求中的应用标签来获取相关的映射表，
 根据表中的信息将中断请求转发给指定的处理器核。
+
 
 
 \section{标签传播}
@@ -335,19 +440,33 @@ APIC使用请求中的应用标签来获取相关的映射表，
 
 \section{标签应用}
 
-\subsection{通过标签实现内存地址空间隔离}
+在第\ref{chap:labeladdrspace:related}节中介绍了现有技术中如何实现资源共享与性能隔离，
+本节将使用标签化地址空间实现这些功能，包括：地址空间隔离、I/O设备共享、
+以及Cache容量划分。
 
-地址映射位置，与EPT技术对比
+\subsection{地址空间隔离}
+
+在现有技术中使用EPT与I/O MMU技术实现地址空间隔离，
+其中EPT用于实现处理器端请求地址的隔离，I/O MMU用实现DMA设备端的地址空间隔离。
+
+
+地址映射位置，与EPT+I/O MMU技术对比
 
 Cache一致性场景下如何实现标签化地址空间
 
-处理器核共享场景（0.1个处理器核）
 
 \subsection{通过标签实现I/O地址空间隔离}
 
 SR-IOV or pseudoMR-IOV
+I/o protect bitmap
+
+\subsection{通过标签实现Cache容量划分} %性能隔离
+
+本文所提出的标签化地址空间机制，使用统一的标签实现资源隔离与性能隔离。
 
 
+
+\section{小结}
 
 
 \if 0

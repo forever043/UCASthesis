@@ -94,16 +94,16 @@ I/O子系统控制平面I/OCP。
 
 % 如何增加标签寄存器
 处理器核心使用MicroBlaze软核及其它附属模块组成，
-其内部结构如图\ref{fig:pard-processor}所示，
+其内部结构如图\ref{fig:pard-core-impl}所示，
 其中包含MicroBlaze软核、中断控制器和时钟模块，
 该模块从外部输入时钟、复位和中断信号，
-通过三个AXI接口（IC指令缓存端口、DC数据缓存端口和DP外设端口）与外部交换数据。
-AXI总线协议中使用独立的通道实现读写请求、数据与响应，
+通过三个AXI4接口（IC指令缓存端口、DC数据缓存端口和DP外设端口）与外部交换数据。
+AXI4总线协议中使用独立的通道实现读写请求、数据与响应，
 其中读写请求中包含用户自定义信号，本文使用该信号在系统中传播应用标签。
 由于MicroBlaze并没有开放源代码，处理器核的请求标记工作需要在核外进行：
 首先在在核外增加了一个标签寄存器，CoreCP连接到该寄存器，并可以对其内容进行修改；
 在IC/DC/DP三个端口外分别增加三个标签模块，
-用于将标签寄存器的值附加到AXI总线AR/AW两个通道的USER信号中，完成请求标记。
+用于将标签寄存器的值附加到AXI4总线AR/AW两个通道的USER信号中，完成请求标记。
 
 % 增加共享缓存模块：支持16路、实现标签传播、实现划分
 Xilinx为AXI4总线提供了一个缓存功能的IP核SystemCache\cite{pg118-system-cache}，
@@ -121,12 +121,27 @@ Xilinx为AXI4总线提供了一个缓存功能的IP核SystemCache\cite{pg118-sys
 第\ref{chap:hwresman}章所提出的资源管理功能进行评估。
 
 % 原型的照片
-本文使用Xilinx Virtex-7 FPGA（型号xc7vx690tffg1761-2）实现了上述PARD原型系统，
-如图\ref{fig:pard-photo}所示。
+本文使用Xilinx Virtex-7 FPGA（型号xc7vx690tffg1761-2）
+在VC709平台上实现了上述PARD原型系统，如图\ref{fig:pard-fpga-board}所示。
 该原型系统对外呈现三类接口：一个RS232串口，与PRM的串口相连；
 三个SFP接口，其中两个连接到I/O子系统，另外一个与PRM的以太网接口相连；
 一个PCI-E Gen3 x4接口，连接到I/O子系统，可以连接兼容的PCI-E设备，
 在本例中在该接口连接了一块Intel PCI-E以太网卡（芯片型号82575）。
+
+\begin{figure}[tb]
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{impl/pard-core-impl}
+  \caption{PARD处理器核内部结构}
+  \label{fig:pard-core-impl}
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{impl/pard-fpga-board}
+  \caption{PARD架构FPGA原型系统}
+  \label{fig:pard-fpga-board}
+\end{minipage}
+\end{figure}
 
 
 \section{PRM与控制平面网络设计}
