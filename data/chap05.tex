@@ -111,11 +111,120 @@ XXXX
 
 \subsection{控制平面微体系结构设计}
 
+
 \subsection{控制平面示例}
 
-\subsubsection{内存控制器控制平面}
+This subsection presents how to design component-specific control
+planes based on the basic control plane structure described in
+x3. We focus on the LLC control plane and the memory control
+plane, whose microachitecture are shown in Figure \ref{fig:pard-cache-cpdesign}
+and Figure \ref{fig:pard-mig-cpdesign}.
+If comparing the two figures, we can see that their bottom half
+exhibit almost the same structure with only slightly different table
+columns. Thus, this basic structure can be easily integrated into a
+variety of hardware components,
+For I/O devices, we add control planes into I/O bridge and IDE.
+Since the design of these I/O control planes is similar to that of the
+memory control plane, here we omit their detail design.
 
-\subsubsection{共享末级缓存控制平面}
+\textbf{共享末级缓存控制平面}\quad
+图\ref{fig:pard-cache-cpdesign}是共享末级缓存控制平面的微体系结构示意图，
+其支持可编程的路划分机制，借助这一机制可以为应用程序调整Cache容量。
+该控制平面由三个基本的控制表组成，即参数表、统计表以及触发表，
+这三张控制表可以通过可编程接口由PRM上的固件进行访问；
+控制平面同时还包括一个连接到PRM的中断线。
+除了引入控制平面以外，还需要对原有缓存控制器中的Tag Array以及伪LRU逻辑进行了修改，
+所有这些修改均以阴影和虚线的方式在图中进行了标识。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.7\textwidth]{hwres/pard-cache-cpdesign}
+  \caption{共享末级缓存控制平面}
+  \label{fig:pard-cache-cpdesign}
+\end{figure}
+
+控制平面的引入是否会为共享末级缓存带来额外的延迟是在设计过程中需要考虑的重要问题，
+幸运的是目前系统中Cache控制器都是基于流水线设计，
+这就使得控制平面的逻辑开销能够隐藏在原有的流水线中，具体流程如下：
+
+（1）当一个包含DS-id和地址的Cache访问请求到达控制器时，
+首先需要利用DS-id从参数表中获得相应的路划分掩码。
+例如掩码``0x00FF''代表在整个16路中仅使用低端的8路。
+与此同时，请求地址被用来在Tag Array中查找相应的条目，
+这些条目除了普通的Tag和状态信息以外，还保存有DS-id；
+
+（2）伪LRU逻辑利用参数表输出的掩码以及Tag Array输出的访问历史计算出哪一路需要被替换；
+
+（3）如果请求在缓存中命中，那么数据将从Data Array中取回，
+连同请求的DS-id一起通过NoC或者crossbar返回给CPU。
+需要注意的是，缓存的命中条件发生了改变，除了请求地址与条目Tag之间原有的约束以外，
+还需要请求DS-id与条目DS-id相互匹配。
+
+（4）如果请求在缓存中没有命中，Cache控制器会分配一个MSHR条目，
+并在该条目中保存原始请求及其DS-id。
+当被请求的数据返回时，Cache控制器需要将MSHR中保存的原始请求DS-id写入到TagArray中。
+该DS-id作为``owner DS-id''，在脏数据写回时，
+需要与地址和数据一同送入回写缓存，并发送到内存控制器。
+
+（5）在以上各个步骤的过程中，Cache控制平面还会完成以下若干操作：
+更新统计表，将Cache使用统计数据发送给平台资源管理器，
+在必要时激活触发条件并发出一个中断信号给PRM。
+需要特别指出的是这些操作并不在关键路径上，不会对延迟造成影响。
+
+可编程接口用于PRM固件访问该控制平面的三个控制表，
+它首先从PRM接收控制表的访问命令，选择相应的表并从指定的表项中读取或写入数据，
+更多细节请参见第\ref{chap:prm}章。
+
+
+\textbf{内存控制器控制平面}\quad
+图\ref{fig:pard-mig-cpdesign}是内存控制器控制平面的微体系结构示意图，
+为了让PARD的逻辑域抽象能够运行未经修改的操作系统和应用，
+该控制平面的参数表保存了用于逻辑域物理地址与DRAM地址的映射信息。
+除此之外，控制表中还保存了每个逻辑域的优先级信息用于访存调度。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.7\textwidth]{hwres/pard-mig-cpdesign}
+  \caption{内存控制器控制平面}
+  \label{fig:pard-mig-cpdesign}
+\end{figure}
+
+%Regarding performance isolation, unlike the LLC, the memory
+%control plane needs to takes into account two factors, i.e., queuing
+%delay and row buffer locality. To manage queuing delay, we add
+%a priority queuing mechanism into the memory controller. The
+%number of queues depends on the priority levels supported by
+%the memory control plane. Our current design only supports two
+%priories, but it is easy to extend. To avoid memory low-priority
+%requests degrading the row buffer hit rate of high-priority requests,
+%we add one extra row buffer into each DRAM chip for high-priority
+%memory requests. If we want to augment DRAM chip with more
+%buffers, we can leverage some commercial designs such as NEC’s
+%virtual-channel memory (VCM).
+
+在性能隔离方面，与Cache控制面不同的是内存控制器控制平面需要考虑以下两个因素：
+排队延迟和行缓冲（row buffer）局部性。
+为了管理排队延迟，PARD在内存控制器中加入了优先级队列机制，
+队列数目取决于内存控制平面能够支持的优先级等级。
+当前的设计中暂时仅支持两个优先级，但可以很容易被扩展到多个优先级。
+为了防止低优先级访存请求干扰并降低高优先级访存请求的行缓冲命中率，
+在DRAM芯片中为高优先级内存请求增加了一个额外的专用行缓冲。
+如果需要为DRAM芯片增加更多的优先级控制能力，
+可以参考NEC的virtual-channel memory（VCM）技术。
+
+在添加了以上机制后，当一个带有DS-id的内存访问请求到达内存控制器时，
+将会顺序引发下列操作：
+
+（1）控制平面利用请求的DS-id从参数表中获得与之相应的地址映射信息、
+队列优先级以及行缓冲编号；
+
+（2）请求逻辑域物理地址被转换成DRAM物理地址；
+
+（3）根据控制表中获取的优先级信息将请求连同DS-id置入相应的请求等待队列中；
+
+（4）DRAM调度器根据高优先级优先以及FR-FCFS\cite{rixner_memory_2000}策略从等待队列中选取请求进行服务；
+
+（5）控制平面更新统计表并检查是否满足触发条件，如果满足则发送中断信号到PRM。
 
 
 \section{可编程数据平面设计}
@@ -179,6 +288,11 @@ Cache控制器的功能是对到达的请求进行缓存操作，使用不同的
 \textbf{数据加密}\ 本示例实现访存数据加密功能，由于数据加密操作通常需要耗费很长的时间，而且我们的数据平面处理器提供的指令集并不足以完成该操作。因此我们在外部实现了硬件AES加密模块，并通过请求接口将其连接到数据平面处理器上，该结构如图7所示。基于该结构，数据处理器只需要将数据发送到AES模块并等待其完成加密，将加密后的数据送出处理器即可。数据解密与加密过程类似，只需将数据发送到连接有解密模块的请求接口即可。
  
 \textbf{缓存替换策略}\ 本示例实现缓存替换策略功能，使用可编程处理器替换Cache中原有的LRU模块，使用软件实现基于二叉树的伪LRU替换策略。处理器固件代码工作流程如下：（1）处理器收到Cache前端的请求后，以及Hit/Miss信息，如果缓存命中则无需任何额外操作；（2）对于缓存缺失的请求，首先从地址中解析出tag与set信息，并将解析后的set地址发送到Tag Array，等待其返回该set的信息；（3）根据TagArrary返回的set信息，以及内部的数据结构生成替换目标；（4）将替换目标送出处理器。
+
+
+\section{模拟器验证}
+
+使用模拟器对控制平面以及缓存划分功能进行验证，数据平面由于模拟速度太慢，直接在FPGA平台上进行验证，更多关于FPGA平台的信息参见第\ref{chap:impl}章。
 
 
 \section{小结}
