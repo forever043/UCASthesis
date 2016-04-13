@@ -93,6 +93,80 @@ XXXX
 
 计算机内的硬件资源主要可以分为两类，一类是基于容量的资源，一类是基于流量的资源。
 例如，共享缓存、处理器核、以及硬盘空间是基于容量的资源，
+总线带宽、访存带宽、或网络带宽是基于流量的资源。
+为了实现对这些硬件资源的管理，PARD将提供这些硬件资源的部分抽象为数据平面与控制平面两部分，
+其中数据平面用于执行数据操作，而控制平面用于对数据平面的策略进行管理。
+以缓存控制器为例，数据平面中包含用缓存数据的DataArray与记录缓存内容的TagArray，
+以及替换策略的实现，其控制平面包含替换策略的参数、统计信息等；
+对于内存控制器而言，数据平面用于接收上层访存请求，并将其转换为内存地址，
+发送到内存阵列中，其控制平面用于控制地址映射与访存调度策略。
+
+从以上两个例子我们可以发现，PARD控制平面的可编程主要体现在其对数据平面所提供功能的控制，而数据平面所提供的功能在其设计完成后即已确定，如果需要增加额外的功能，则需要对数据平面进行重新的设计，并对控制平面暴露相应的接口。因此，控制平面的可编程能力受到数据平面所能提供功能的限制。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.6\textwidth]{hwres/pard-dp-arch}
+  \caption{可编程数据平面架构}
+  \label{fig:pard-dp-arch}
+\end{figure}
+
+为解决以上两个问题，本文提出的可编程数据平面架构如图\ref{fig:pard-dp-arch}所示。在PARD中所提出的控制平面/数据平面模型基础上，在数据平面中增加了多个可编程处理器，连接数据平面中其它的逻辑部分，并通过其中的固件代码对数据进行处理。控制平面依然使用三张控制表作为对外访问的接口，通过控制平面网络与集中式的平台资源管理模块通信。由于数据平面部件能够执行代码，因此可以使用软件代码来实现反馈调节，因此触发逻辑已经从控制平面中被移除。
+ 
+要实现以上可编程数据平面架构，需要解决以下三个问题：（1）如何为不同硬件部件的数据平面增加处理器逻辑；（2）处理器如何设计，如何与控制平面进行通信；（3）处理器逻辑如何编程。本文后续章节将针对以上三个问题进行分别阐述。
+
+在讨论数据平面处理器设计前，我们首先以内存控制器和缓存控制器为例，讨论可编程数据平面的设计。
+
+\subsection{内存控制器}
+当前的处理器芯片通常会集成2个到4个独立的内存控制器，每个控制器使用独立的内存通道。
+每个内存通道连接到多个可并行访问的rank，
+而每个rank又是由多个共享地址与数据总线的二维存储阵列（bank）组成。
+内存控制器的主要工作就是接收上游的读写请求，并将其转换为下游的DRAM命令，完成数据传输。
+以内存控制器作为数据平面，可以在地址映射和访存调度两个位置增加可编程功能。
+
+\textbf{地址映射}\quad
+地址映射分为两部分，
+首先是通过处理器的页表机制实现了从虚拟地址空间到物理地址空间的映射，
+虚拟化场景的出现在这一基础上又增加了扩展页表EPT机制，
+额外增加了一级虚拟机物理地址到主机物理地址的映射。
+之后是内存控制器将处理器的物理地址空间映射到DRAM阵列中，
+通常使用静态地址映射，通过某种固定的规则将物理地址空间映射到DRAM的bank、row和column中。
+
+在PARD架构中，通过在内存控制器前增加MMU模块，通过映射表将不同应用标签的访存请求进行隔离。
+但这种方式只实现了一种固定的地址映射机制，即只能进行连续的大块地址分配，
+无法实现EPT等技术所支持的细粒度内存空间管理。
+为解决这一问题，可以将静态的MMU模块替换为一个处理器，
+能够在其中编写软件代码实现地址空间的映射。
+通过这种方式除了可以完成PARD中MMU的功能外，还可以实现更细粒度的空间管理，
+也可以实现现有虚拟化平台中常见的基于内容的内存空间压缩机制。
+除此之外，该处理器还可以通过对请求数据进行额外处理，
+以在硬件层面实现更复杂的如数据加密、敏感词过滤等高级功能。
+
+\textbf{访存调度}\quad
+在PARD的内存控制平面中，
+只实现了简单的基于优先级的访存调度，可以通过增加处理器的方式实现更为灵活的调度策略。
+同时也可以像PARDIS\cite{bojnordi_pardis:_2012}工作一样，
+将处理器加入到内存控制器内部的请求调度模块中，根据不同应用的需求实现不同的DRAM调度策略。
+
+\subsection{缓存控制器}
+Cache控制器的功能是对到达的请求进行缓存操作，使用不同的替换策略，
+对数据访问热度进行预测，以提高访存命中率，提高系统性能。
+Cache的核心主要包括TagArray、DataArray和替换策略三个部分。
+以Cache作为数据平面，可以在容量划分与替换策略两个角度增加可编程功能。
+
+\textbf{容量划分}\quad
+传统的Cache并没有提供容量划分功能，
+因此不同应用在共享Cache上运行会造成不同程度的干扰。
+Intel最新提出的CAT技术\cite{intel-cat}在Cache上增加了按路的缓存容量划分机制。
+但按路划分并非适合所有的应用，可以通过使用处理器替换固定的Set/Way映射方式，
+根据应用实现更为灵活的缓存容量划分方式。
+
+\textbf{替换策略}\quad
+与容量划分的需求类似，不同应用的访存模式不同，
+固定的缓存替换策略并不能很好的适应所有应用。因此使用处理器与软件替换策略，
+与PARD的应用区分机制结合，可以实现更为灵活高效的缓存。
+
+本章后续章节将依次介绍PARD体系结构中控制平面与数据平面的设计，
+并通过模拟器对控制平面的效果进行验证，由于
 
 \section{控制平面设计}
 
@@ -108,6 +182,29 @@ XXXX
 
 
 \subsection{资源调整机制}
+
+To facilitate
+operators to define resource management policies and program
+control planes, PARD provides not only basic priority-based rules
+but also an advanced ``trigger$\Rightarrow$action'' programming methodology.
+
+As shown in Figure 3, operators can define several DS-id tag
+based “trigger)action” rules each of which targets a set of hardware
+resources. Particularly, triggers are based on performance
+metrics such as LLC miss rate and are stored in trigger tables; an
+action (a.k.a., trigger handler) can be written in any languages as
+long as they support file primitives. Operator-defined rules are installed
+in the device file tree of the firmware. It is worth noting that
+thank to the centralized PRM, trigger and action can be designated
+to different resources. For instance, if a trigger is created to monitor
+memory bandwidth, its action can be defined to adjust LLC capacity
+because LLC miss rate is strongly correlated with both memory
+bandwidth and LLC capacity.
+Data center operators define actions and “trigger)action” rules
+to represent different resource management policies that are correlated
+to service-level agreements (SLA) so that users can choose
+suitable SLA according to their QoS requirements.
+
 
 \subsection{控制平面微体系结构设计}
 
@@ -229,40 +326,17 @@ memory control plane, here we omit their detail design.
 
 \section{可编程数据平面设计}
 
-在PARD中，计算机的硬件部件被抽象为数据平面与控制平面两部分，其中数据平面用于执行数据操作，而控制平面用于对数据平面的策略进行管理。以缓存控制器为例，数据平面中包含用缓存数据的DataArray与记录缓存内容的TagArray，以及替换策略的实现，其控制平面包含替换策略的参数、统计信息等；对于内存控制器而言，数据平面用于接收上层访存请求，并将其转换为内存地址，发送到内存阵列中，其控制平面用于控制地址映射与访存调度策略。从以上两个例子我们可以发现，PARD控制平面的可编程主要体现在其对数据平面所提供功能的控制，而数据平面所提供的功能在其设计完成后即已确定，如果需要增加额外的功能，则需要对数据平面进行重新的设计，并对控制平面暴露相应的接口。因此，控制平面的可编程能力受到数据平面所能提供功能的限制。
+本节主要讨论可编程数据平面的设计，正如第\ref{}节中所述，
+在控制平面的基础上增加数据平面，是为了增强硬件的可编程能力；
+同时，PARD的触发机制存在一些问题，主要是
 
-\begin{figure}[tb]
-  \centering
-  \includegraphics[width=0.6\textwidth]{hwres/pard-dp-arch}
-  \caption{可编程数据平面架构}
-  \label{fig:pard-dp-arch}
-\end{figure}
-
-另一方面，PARD中的``trigger$\Rightarrow$action''机制在响应时间上存在瓶颈：每当触发条件发生后，需要经过控制平面网络将该事件传递到PRM，由运行在PRM中的软件代码来更新策略，并通过控制平面网络写回到控制平面中。由于受到控制平面网络延迟以及PRM软件代码延迟的影响，该机制并不能达到特别高的响应速度。同时并非所有的触发条件发生后都需要在PRM进行全局处理，完全可以预定义一些动作，在控制平面本地完成处理。
-为解决以上两个问题，本文提出的可编程数据平面架构如图\ref{fig:pard-dp-arch}所示。在PARD中所提出的控制平面/数据平面模型基础上，在数据平面中增加了多个可编程处理器，连接数据平面中其它的逻辑部分，并通过其中的固件代码对数据进行处理。控制平面依然使用三张控制表作为对外访问的接口，通过控制平面网络与集中式的平台资源管理模块通信。由于数据平面部件能够执行代码，因此可以使用软件代码来实现反馈调节，因此触发逻辑已经从控制平面中被移除。
- 
-要实现以上可编程数据平面架构，需要解决以下三个问题：（1）如何为不同硬件部件的数据平面增加处理器逻辑；（2）处理器如何设计，如何与控制平面进行通信；（3）处理器逻辑如何编程。本文后续章节将针对以上三个问题进行分别阐述。
-
-\subsection{可编程数据平面}
-
-在讨论数据平面处理器设计前，我们首先以内存控制器和缓存控制器为例，讨论可编程数据平面的设计。
-
-\subsubsection*{内存控制器}
-当前的处理器芯片通常会集成2个到4个独立的内存控制器，每个控制器使用独立的内存通道。每个内存通道连接到多个可并行访问的rank，而每个rank又是由多个共享地址与数据总线的二维存储阵列（bank）组成。内存控制器的主要工作就是接收上游的读写请求，并将其转换为下游的DRAM命令，完成数据传输。以内存控制器作为数据平面，可以在地址映射和访存调度两个位置增加可编程功能。
-
-地址映射 地址映射分为两部分，首先是通过处理器的页表机制实现了从虚拟地址空间到物理地址空间的映射，虚拟化场景的出现在这一基础上又增加了扩展页表EPT机制，额外增加了一级虚拟机物理地址到主机物理地址的映射。之后是内存控制器将处理器的物理地址空间映射到DRAM阵列中，通常使用静态地址映射，通过某种固定的规则将物理地址空间映射到DRAM的bank、row和column中。
-
-在PARD架构中，通过在内存控制器前增加MMU模块，通过映射表将不同应用标签的访存请求进行隔离。但这种方式只实现了一种固定的地址映射机制，即只能进行连续的大块地址分配，无法实现EPT等技术所支持的细粒度内存空间管理。为解决这一问题，可以将静态的MMU模块替换为一个处理器，能够在其中编写软件代码实现地址空间的映射。通过这种方式除了可以完成PARD中MMU的功能外，还可以实现更细粒度的空间管理，也可以实现现有虚拟化平台中常见的基于内容的内存空间压缩机制。除此之外，该处理器还可以通过对请求数据进行额外处理，以在硬件层面实现更复杂的如数据加密、敏感词过滤等高级功能。
-
-访存调度 在PARD的内存控制平面中，只实现了简单的基于优先级的访存调度，可以通过增加处理器的方式实现更为灵活的调度策略。同时也可以像PARDIS[17]工作一样，将处理器加入到内存控制器内部的请求调度模块中，根据不同应用的需求实现不同的DRAM调度策略。
-
-\subsubsection*{缓存控制器}
-Cache控制器的功能是对到达的请求进行缓存操作，使用不同的替换策略，对数据访问热度进行预测，以提高访存命中率，提高系统性能。Cache的核心主要包括TagArray、DataArray和替换策略三个部分。以Cache作为数据平面，可以在容量划分与替换策略两个角度增加可编程功能。
-
-容量划分 传统的Cache并没有提供容量划分功能，因此不同应用在共享Cache上运行会造成不同程度的干扰。Intel最新提出的CAT技术[28]在Cache上增加了按路的缓存容量划分机制。但按路划分并非适合所有的应用，可以通过使用处理器替换固定的Set/Way映射方式，根据应用实现更为灵活的缓存容量划分方式。
-
-替换策略 与容量划分的需求类似，不同应用的访存模式不同，固定的缓存替换策略并不能很好的适应所有应用。因此使用处理器与软件替换策略，与PARD的应用区分机制结合，可以实现更为灵活高效的缓存。
-
+另一方面，PARD中的``trigger$\Rightarrow$action''机制在响应时间上存在瓶颈：
+每当触发条件发生后，需要经过控制平面网络将该事件传递到PRM，
+由运行在PRM中的软件代码来更新策略，并通过控制平面网络写回到控制平面中。
+由于受到控制平面网络延迟以及PRM软件代码延迟的影响，
+该机制并不能达到特别高的响应速度。
+同时并非所有的触发条件发生后都需要在PRM进行全局处理，
+完全可以预定义一些动作，在控制平面本地完成处理。
 
 \subsection{数据平面处理器体系结构}
 
@@ -332,7 +406,7 @@ Cache控制器的功能是对到达的请求进行缓存操作，使用不同的
   \end{minipage}
 \end{table}
 
-\subsubsection{固件代码示例}
+\subsection{固件代码示例}
 本节将以三段不同功能的固件代码为例，介绍数据平面处理器的编程方法。
 
 \textbf{段式地址映射}\ 本示例用于实现PARD的内存控制器控制平面所提供的地址映射功能，该功能只需要对访存请求的地址进行修改，而请求的数据无需修改，我们将地址与数据分开由两个处理器进行处理，如图\ref{fig:pard-dp-ex-mapping}右所示。对于数据处理器，其固件代码只使用rbget/rbput指令对请求进行转发。地址处理器首先需要使用rbget指令获取当前请求到请求寄存器，并使用mfrb指令将其中的地址与DSid读取到通用寄存器；而后通过查表的方式获得该请求对应的映射目的地址的基址，对请求地址进行变换，并使用mtrb指令将变换后的地址写回到请求寄存器，最后通过rbput指令将新的访存请求从处理器中送出，完成地址映射功能。
@@ -367,6 +441,96 @@ Cache控制器的功能是对到达的请求进行缓存操作，使用不同的
 
 使用模拟器对控制平面以及缓存划分功能进行验证，数据平面由于模拟速度太慢，直接在FPGA平台上进行验证，更多关于FPGA平台的信息参见第\ref{chap:impl}章。
 
+
+\subsection{模拟器评测结果}
+
+\subsubsection{``Trigger$\Rightarrow$Action'' Mechanism Verification}\leavevmode
+
+We partitioned the server into four LDoms and ran latency-critical memcached
+in LDom0. Because the simulation speed is too slow to simulate
+network environments, we ran both memcached
+client and server in one LDom where they share a CPU core. Although
+the client and server may contend for resources within a LDom, this contention
+in a blackbox is acceptable while we focus on the interference between LDoms.
+The other three LDoms all ran STREAM microbenchmark.
+
+Figure \ref{fig:pardsim:memcached-resptime} illustrates the change of
+memcached's tail response time over different request loads.
+When memcached runs in the solo-mode (only LDom0 is active),
+it can serve 22.5K request per
+second (RPS) with reasonable 95-percentile response time (0.6ms). However,
+only one CPU core is fully busy, thus the total server CPU utilization is 25\% .
+If the other three LDoms are launched to share resources with LDom0,
+All four CPU cores are fully busy so that the server exhibits 100\% CPU utilization.
+Unfortunately, the throughput of memcached drops to 15K RPS while
+the 95-percentile response time already exceeds 1ms. When 
+the throughput increases to 20K RPS, the 95-percetile response time
+dramatically increases by two orders of magnitude (62.6ms). 
+
+To verify the the effectiveness of the ``\emph{trigger$\Rightarrow$action}'' mechanism,
+As shown in Figure \ref{fig:programming}, we predefined a trigger for LDom0, i.e.,
+``LLC.MissRate $>$ 30\% $\Rightarrow$ increasing LLC capacity up to 50\%''.
+
+Next we installed the LLC trigger into the LLC control plane before launching
+LDom0 and then launched all four LDoms. Figure \ref{fig:pardsim:memcached-20krps-missrate} shows how
+LDom0's LLC miss rate varies while the trigger takes effect. After half of LLC capacity is
+dedicated to LDom0, memcached's LLC miss rate quickly decreases to
+only about 10\%, just slightly larger than the solo-mode's miss rate (7\%).
+As a result, the throughput increases to 22.5K RPS with reasonable
+95-percentile response time (1.2ms). Compared with the solo-mode, 
+since LDom0 uses only half of LLC capacity, this tail response time is 
+slightly longer. Overall, these experimental results show that even the total 
+server CPU utilization is 100\% (all four cores are fully busy),
+memcached's behaviors can still approach the solo mode.
+
+This experiment demonstrates that the ``\emph{trigger$\Rightarrow$action}'' mechanism 
+is able to take the advantage of PARD and is beneficial for balancing the trade-offs between
+resource utilization and applications' QoS.
+
+
+\subsubsection{Disk I/O Performance Isolation}\leavevmode
+
+PARD is able to manage not only capacity resources (e.g., LLC)
+but also bandwidth resources such as memory and I/O bandwidth.
+In this experiment, two LDoms are active and each LDom executes
+disk write operation through
+this command: ``\emph{dd if=/dev/zero of=/dev/sdb bs=32M count=16}''.
+
+Initially, two LDoms share the IDE controller so that they exhibit the same
+disk I/O bandwidth. Assume the user of LDom1 pays more money in order to get
+better I/O performance, we manually ran
+``\emph{echo 80 $>$ /sys/cpa/cpa3/ldom0/parameters/bandwidth}''
+to program the IDE control plane
+to increase the disk I/O bandwidth quota of LDom0 to 80\%.
+Figure \ref{fig:pardsim:iosched} illustrates the effect of disk I/O
+bandwidth reallocation.
+
+Although there are other approaches to manage I/O bandwidth such as cgroup \cite{cgroup},
+PARD provides a more efficient fine-grained I/O management scheme that requires
+no modifications to OS kernel and applications, reducing the complexity of software
+stack.
+
+\begin{figure}[tb]
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-resptime}
+  \caption{模拟器memcached 95\%-tail延迟示意图}
+  \label{fig:pardsim:memcached-resptime}
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-20krps-missrate}
+  \caption{模拟器memcached末级缓存命中率变化（20KRPS）}
+  \label{fig:pardsim:memcached-20krps-missrate}
+\end{minipage}
+\end{figure}
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.5\textwidth]{hwres/pard-sim-iosched}
+  \caption{磁盘I/O性能隔离}
+  \label{fig:pardsim:iosched}
+\end{figure}
 
 \section{小结}
 
