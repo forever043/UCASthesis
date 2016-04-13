@@ -111,12 +111,12 @@ Xilinx为AXI4总线提供了一个缓存功能的IP核SystemCache\cite{pg118-sys
 不足以验证缓存容量划分的功能，本文通过修改IP核实现，将其扩展到16路组关联；
 按照第\ref{chap:labeladdrspace:}节所述的方式，为该模块增加了标签传播功能；
 同时修改其默认LRU替换策略，使其支持按路划分功能，
-并通过CacheCP对共享缓存的行为进行控制（参见第\ref{chap:impl:cache}节）。
+并通过CacheCP对共享缓存的行为进行控制（参见第\ref{chap:impl:cachecp}节）。
 % 实现的多核
 该Cache模块提供MicroBlaze专用接口连接四个处理器核，
 同时还提供了通用AXI Master接口连接I/O子系统的DMA通道。
 内存控制器与I/O子系统的控制平面提供了地址映射功能，实现四个处理器核的资源划分，
-第\ref{chap:impl:memcp}节和第\ref{chap:impl:iocp}节将讨论两个控制平面的实现，
+第\ref{chap:impl:migcp}节和第\ref{chap:impl:iocp}节将讨论两个控制平面的实现，
 并对第\ref{chap:labeladdrspace}章所提出的全硬件支持的虚拟化和
 第\ref{chap:hwresman}章所提出的资源管理功能进行评估。
 
@@ -155,7 +155,7 @@ Xilinx为AXI4总线提供了一个缓存功能的IP核SystemCache\cite{pg118-sys
 
 
 
-\section{PRM与控制平面网络设计}
+\section{PRM与软件栈实现}
 
 为何选择I2C，有何替代
 
@@ -166,36 +166,60 @@ Xilinx为AXI4总线提供了一个缓存功能的IP核SystemCache\cite{pg118-sys
 触发表中断传播机制
 
 
-\section{系统设计与关键技术}
+\section{控制平面实现}
 
-\subsection{标签集成}
-
-\subsection{通用控制平面设计}
+\subsection{通用控制平面}
 
 \subsubsection*{表设计}
 \subsubsection*{状态表更新逻辑}
 \subsubsection*{触发表逻辑}
 
-\subsection{通用数据平面设计}
 
-\subsection{系统集成}
+\subsection{处理器核控制平面}
+\label{chap:impl:corecp}
 
-\subsubsection*{系统集成：处理器核}
+\subsection{共享末级缓存控制平面}
+\label{chap:impl:cachecp}
 
-\subsubsection*{系统集成：共享末级缓存}
+\subsection{内存控制器控制平面}
+\label{chap:impl:migcp}
 
-\subsubsection*{系统集成：内存控制器}
-
-\subsubsection*{系统集成：I/O子系统}
-
-
-\subsection{小结}
-包含踩过的坑，如基础系统选择，最初的OpenSPARC方案+寄存器修改 => MicroBlaze外包一层
-FPGA实现中遇到的问题
+\subsection{I/O子系统控制平面}
+\label{chap:impl:iocp}
 
 
-\section{软件栈设计}
+\section{数据平面实现}
 
+我们修改了该原型系统的内存控制器部分，在其中增加了数据平面处理器（图10箭头所标识的区域），通过软件代码的方式实现内存地址映射功能。为简化实现，我们使用精简配置的MicroBlaze实现数据平面处理器的功能。
+
+（1）将MicroBlaze配置为精简模式，去除所有与数据平面处理器无关的可选指令，如：硬件FPU、乘法器/除法器、扩展指令等；关闭MMU、Cache、中断异常等高级功能，只保留最基本的算术逻辑部分。通过精简配置，MicroBlaze系统的频率从133MHz提高到了250MHz。
+
+（2）使用MicroBlaze提供的Stream Link接口作为数据平面处理器的请求接口。由于目前MicroBlaze的Stream Link接口是固定的32位AXIS接口，我们将多个Stream Link合并使用作为一个请求接口。
+
+（3）MicroBlaze提供put/get指令实现对Stream Link的接口，通过合并多个put或get指令即可实现请求缓存指令rbput和rbget。如表\ref{tab:pard-dp-isa-impl}所示，“请求”类型的长度为12个字节，我们使用3个MicroBlaze通用寄存器（r10-r12）作为请求寄存器，通过使用get/put指令操作Stream Link接口fsl0，实现rbget和rbput的功能。
+
+\begin{table}[htb]
+  \centering
+  \begin{minipage}[t]{0.6\linewidth}
+  \caption{请求缓存指令的MicroBlaze实现}
+  \label{tab:pard-dp-isa-impl}
+    \begin{tabular*}{\linewidth}{lp{0.5cm}lp{0.5cm}l}
+      \toprule[1.5pt]
+       & \multicolumn{2}{l}{\textbf{rbput}} & \multicolumn{2}{l}{\textbf{rbget}} \\ 
+      \midrule[1pt]
+
+      \multirow{8}{2cm}{\textbf{MicroBlaze指令实现}} & \multicolumn{2}{l}{rbput:}   & \multicolumn{2}{l}{rbget:} \\
+                                                   &  & nget fsl0                 &  & nput fsl0               \\
+                                                   &  & addc r3, r0, r0           &  & addc r3, r0, r0         \\
+                                                   &  & bneq ret                  &  & bneq ret                \\
+                                                   &  & get r10, fsl0             &  & put r10, fsl0           \\
+                                                   &  & get r11, fsl1             &  & put r11, fsl1           \\
+                                                   &  & get r12, fsg2             &  & put r12, fsl2           \\
+                                                   & \multicolumn{2}{l}{ret:}     & \multicolumn{2}{l}{ret:}   \\
+      \bottomrule[1.5pt]
+    \end{tabular*}\\[2pt]
+  \end{minipage}
+\end{table}
 
 
 \section{性能评估}
@@ -214,43 +238,4 @@ FPGA实现中遇到的问题
 
 
 \section{小结}
-
-
-\if 0	% 模拟器移动到第4、5章相应的章节
-
-\section{模拟器实现}
-\subsection{基本配置}
-
-\subsection{模拟器设计目标}
-
-与网络/SDN对比的功能表格，列出实现目标
-
-列出模拟器局限
-
-\subsection{系统设计与关键技术}
-
-\subsubsection{实现全硬件虚拟化}
-
-标签机制 + core/LLC/mc/io
-ptable + MultiOS
-
-\subsubsection{实现资源预留}
-
-stable统计 + LLC partition
-
-\subsubsection{实现QoS}
-
-ttable + scheduling + feedback
-
-\subsubsection{管理}
-
-PRM + Program/Trigger
-
-\subsubsection{小结}
-
-总结已实现的功能，并对未来可能扩展的功能进行展望
-
-\subsection{小结}
-
-\fi
 

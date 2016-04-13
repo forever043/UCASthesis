@@ -167,21 +167,28 @@ Intel最新提出的CAT技术\cite{intel-cat}在Cache上增加了按路的缓存
 
 本章后续章节将依次介绍PARD体系结构中控制平面与数据平面的设计，
 并通过模拟器对控制平面的效果进行验证，由于
+使用模拟器对控制平面以及缓存划分功能进行验证，数据平面由于模拟速度太慢，直接在FPGA平台上进行验证，更多关于FPGA平台的信息参见第\ref{chap:impl}章。
 
 \section{控制平面设计}
 
-%这里加一个图，说明一下控制平面与硬件的关系，就是大框套小框的关系
 控制平面是在硬件之外增加的一层，对硬件的行为进行控制，
 同时可以在必要时对发送到硬件的请求进行额外的处理，如地址变换、请求无效等。
 由于控制平面能够感知到硬件处理的所有请求，因此可以实现实时性能监控与反馈，
 由于控制平面能够对硬件行为进行控制，因此可以实现资源调整机制。
 
-\subsection{实时资源监控与反馈}
+\subsection{实时资源监控与管理}
+\textbf{本节主要写stab和ptab抽象}
 资源监控是实现硬件资源可管理共享的第一步，要实现好的共享管理策略，必需对系统当前的资源分配情况、应用性能进行细粒度、实时的监控。
 目前监控主要是软件和硬件两个方面，由于
 
+PARD可以按应用进行控制，
+
+Intel使用Performance Counter机制实现资源监控，通过软件设定监控的事件类型，
+并指定计数器上限，当该事件的计数达到该上限时发起中断通知，
+
 
 \subsection{资源调整机制}
+\textbf{本节主要写ttab和trigger$\Rightarrow$action}
 
 To facilitate
 operators to define resource management policies and program
@@ -206,7 +213,63 @@ to service-level agreements (SLA) so that users can choose
 suitable SLA according to their QoS requirements.
 
 
-\subsection{控制平面微体系结构设计}
+\subsection{通用控制平面微体系结构设计}
+
+综合以上控制平面功能与设计，其微体系结构如图\ref{fig:pard-cp-design}所示。
+PARD控制平面的核心是三个控制表，即参数表（Parameter Table，ptab）、
+统计信息表（Statistics Table，stab）和触发表（Trigger Table，ptab）。
+参数表与硬件模块之间通过参数接口（HW PARAM IF）进行交互，
+硬件模块在收到请求后，使用请求中的应用标签DS-id查询参数表，获取需要的参数；
+统计信息表与硬件模块之间通过统计信息接口进行交互，硬件模块在完成一个请求后，
+通过该接口实现统计信息的更新。
+除此之外，控制平面中还包含连接控制平面网络（CPN）的接口模块，
+PRM通过该模块来访问三个控制表。
+
+三个控制表都使用CAM+RAM的结构实现，
+其中参数表与统计信息表的CAM中使用应用标签DS-id进行索引，
+触发表的CAM中除应用标签DS-id外还包括触发条件对应的统计信息编码。
+参数表在收到参数查询请求后，通过CAM查询该请求所对应的表项，
+并在RAM中获取其参数并返回给硬件模块；
+统计信息表的更新过程与参数表类似，通过CAM查询表项，将新的统计信息更新到RAM对应的表项中；
+在统计信息表更新的同时，应用标签和统计信息编码同样被送到触发表的CAM中，
+用于查询是否存在与本次更新相对的触发条件，如果触发条件存在且满足，
+则通过CPN接口模块向PRM发送触发事件通知。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{hwres/pard-cp-design}
+  \caption[控制平面微体系结构设计]{控制平面微体系结构设计：
+  （a）控制平面的核心是三个控制表，即参数表ptab、统计信息表stab和触发表ttab，
+       以及这三个控制表与控制平面网络和硬件设备的接口模块；
+  （b）参数表由CAM和RAM组成，实现按DS-id索引参数的功能；
+  （c）统计信息表与触发表同样由CAM和RAM组成，触发表的CAM按<DS-id, stats>组合索引，
+       该图为统计信息表更新以及触发检查逻辑。}
+  \label{fig:pard-cp-design}
+\end{figure}
+
+控制平面网络接口模块使用寄存器窗口的方式对外提供控制表的访问，
+如图\ref{fig:pard-cp-intf}所示。
+For the underlying implementation of the control plane tree, the
+PRM reserves a 64KB (16 bits) I/O address space for mapping the
+control plane adaptors (CPA). In particular, each CPA occupies 32
+bytes whose definition is shown in the topright of Figure 6: two
+fields IDENT and IDENT HIGH (12 bytes in total) represents the
+ident node of the tree; the 32-bit type field indicates the type of
+a control plane; the 32-bit addr field contains 16-bit DS-id, 14-
+bit offset designating the column of a table and, 2 bits for table
+selection; the 32-bit cmd field specifies either READ operation or
+WRITE operation to a selected table; finally, the 64-bit data field
+depends on the cmd field. The content of data field is filled by users
+if the cmd is WRITE operation. In contrast, it is filled by a control
+plane and is read by users.
+
+To program a control plane, a driver first writes data into the
+addr field to select a table cell by a DS-id (row) and an offset
+(column). If a user intends to modify the table, the driver fills
+the data filed and then writes the WRITE command into the cmd
+field. For reading data from the control plane, after the addr field is
+initialized, the driver writes the READ command into the cmd field
+and then reads the data field.
 
 
 \subsection{控制平面示例}
@@ -323,6 +386,97 @@ memory control plane, here we omit their detail design.
 
 （5）控制平面更新统计表并检查是否满足触发条件，如果满足则发送中断信号到PRM。
 
+\subsection{模拟器评测结果}
+
+\subsubsection{模拟器实现与评测场景}
+
+\subsubsection{``Trigger$\Rightarrow$Action'' Mechanism Verification}
+
+We partitioned the server into four LDoms and ran latency-critical memcached
+in LDom0. Because the simulation speed is too slow to simulate
+network environments, we ran both memcached
+client and server in one LDom where they share a CPU core. Although
+the client and server may contend for resources within a LDom, this contention
+in a blackbox is acceptable while we focus on the interference between LDoms.
+The other three LDoms all ran STREAM microbenchmark.
+
+Figure \ref{fig:pardsim:memcached-resptime} illustrates the change of
+memcached's tail response time over different request loads.
+When memcached runs in the solo-mode (only LDom0 is active),
+it can serve 22.5K request per
+second (RPS) with reasonable 95-percentile response time (0.6ms). However,
+only one CPU core is fully busy, thus the total server CPU utilization is 25\% .
+If the other three LDoms are launched to share resources with LDom0,
+All four CPU cores are fully busy so that the server exhibits 100\% CPU utilization.
+Unfortunately, the throughput of memcached drops to 15K RPS while
+the 95-percentile response time already exceeds 1ms. When 
+the throughput increases to 20K RPS, the 95-percetile response time
+dramatically increases by two orders of magnitude (62.6ms). 
+
+To verify the the effectiveness of the ``\emph{trigger$\Rightarrow$action}'' mechanism,
+As shown in Figure \ref{fig:programming}, we predefined a trigger for LDom0, i.e.,
+``LLC.MissRate $>$ 30\% $\Rightarrow$ increasing LLC capacity up to 50\%''.
+
+Next we installed the LLC trigger into the LLC control plane before launching
+LDom0 and then launched all four LDoms. Figure \ref{fig:pardsim:memcached-20krps-missrate} shows how
+LDom0's LLC miss rate varies while the trigger takes effect. After half of LLC capacity is
+dedicated to LDom0, memcached's LLC miss rate quickly decreases to
+only about 10\%, just slightly larger than the solo-mode's miss rate (7\%).
+As a result, the throughput increases to 22.5K RPS with reasonable
+95-percentile response time (1.2ms). Compared with the solo-mode, 
+since LDom0 uses only half of LLC capacity, this tail response time is 
+slightly longer. Overall, these experimental results show that even the total 
+server CPU utilization is 100\% (all four cores are fully busy),
+memcached's behaviors can still approach the solo mode.
+
+This experiment demonstrates that the ``\emph{trigger$\Rightarrow$action}'' mechanism 
+is able to take the advantage of PARD and is beneficial for balancing the trade-offs between
+resource utilization and applications' QoS.
+
+\begin{figure}[tb]
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-resptime}
+  \caption{模拟器memcached 95\%-tail延迟示意图}
+  \label{fig:pardsim:memcached-resptime}
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-20krps-missrate}
+  \caption{模拟器memcached末级缓存命中率变化（20KRPS）}
+  \label{fig:pardsim:memcached-20krps-missrate}
+\end{minipage}
+\end{figure}
+
+\subsubsection{Disk I/O Performance Isolation}
+
+PARD is able to manage not only capacity resources (e.g., LLC)
+but also bandwidth resources such as memory and I/O bandwidth.
+In this experiment, two LDoms are active and each LDom executes
+disk write operation through
+this command: ``\emph{dd if=/dev/zero of=/dev/sdb bs=32M count=16}''.
+
+Initially, two LDoms share the IDE controller so that they exhibit the same
+disk I/O bandwidth. Assume the user of LDom1 pays more money in order to get
+better I/O performance, we manually ran
+``\emph{echo 80 $>$ /sys/cpa/cpa3/ldom0/parameters/bandwidth}''
+to program the IDE control plane
+to increase the disk I/O bandwidth quota of LDom0 to 80\%.
+Figure \ref{fig:pardsim:iosched} illustrates the effect of disk I/O
+bandwidth reallocation.
+
+Although there are other approaches to manage I/O bandwidth such as cgroup \cite{cgroup},
+PARD provides a more efficient fine-grained I/O management scheme that requires
+no modifications to OS kernel and applications, reducing the complexity of software
+stack.
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.45\textwidth]{hwres/pard-sim-iosched}
+  \caption{磁盘I/O性能隔离}
+  \label{fig:pardsim:iosched}
+\end{figure}
+
 
 \section{可编程数据平面设计}
 
@@ -437,100 +591,32 @@ memory control plane, here we omit their detail design.
 \end{figure}
 
 
-\section{模拟器验证}
+\subsection{可编程支持}
 
-使用模拟器对控制平面以及缓存划分功能进行验证，数据平面由于模拟速度太慢，直接在FPGA平台上进行验证，更多关于FPGA平台的信息参见第\ref{chap:impl}章。
+数据平面的可编程主要体现在数据平面处理器的固件代码更新，
+通过更新固件代码的方式实现策略的调整。
+对数据平面处理器固件代码更新可以分为兼容性更新与非兼容性更新，
+其中``兼容性''是指更新前后的代码是否对数据平面的功能产生更改。
+对于非兼容性更新，需要首先关闭系统中所有正在运行的逻辑域，
+并在数据平面处理器固件更新完成后重新启动逻辑域；
+对于兼容性更新，系统可实现无中断运行，
+但需要对数据平面处理器与硬件的接口处进行额外的处理，
+如图\ref{fig:pard-dp-fw-upgrade}所示。
 
-
-\subsection{模拟器评测结果}
-
-\subsubsection{``Trigger$\Rightarrow$Action'' Mechanism Verification}\leavevmode
-
-We partitioned the server into four LDoms and ran latency-critical memcached
-in LDom0. Because the simulation speed is too slow to simulate
-network environments, we ran both memcached
-client and server in one LDom where they share a CPU core. Although
-the client and server may contend for resources within a LDom, this contention
-in a blackbox is acceptable while we focus on the interference between LDoms.
-The other three LDoms all ran STREAM microbenchmark.
-
-Figure \ref{fig:pardsim:memcached-resptime} illustrates the change of
-memcached's tail response time over different request loads.
-When memcached runs in the solo-mode (only LDom0 is active),
-it can serve 22.5K request per
-second (RPS) with reasonable 95-percentile response time (0.6ms). However,
-only one CPU core is fully busy, thus the total server CPU utilization is 25\% .
-If the other three LDoms are launched to share resources with LDom0,
-All four CPU cores are fully busy so that the server exhibits 100\% CPU utilization.
-Unfortunately, the throughput of memcached drops to 15K RPS while
-the 95-percentile response time already exceeds 1ms. When 
-the throughput increases to 20K RPS, the 95-percetile response time
-dramatically increases by two orders of magnitude (62.6ms). 
-
-To verify the the effectiveness of the ``\emph{trigger$\Rightarrow$action}'' mechanism,
-As shown in Figure \ref{fig:programming}, we predefined a trigger for LDom0, i.e.,
-``LLC.MissRate $>$ 30\% $\Rightarrow$ increasing LLC capacity up to 50\%''.
-
-Next we installed the LLC trigger into the LLC control plane before launching
-LDom0 and then launched all four LDoms. Figure \ref{fig:pardsim:memcached-20krps-missrate} shows how
-LDom0's LLC miss rate varies while the trigger takes effect. After half of LLC capacity is
-dedicated to LDom0, memcached's LLC miss rate quickly decreases to
-only about 10\%, just slightly larger than the solo-mode's miss rate (7\%).
-As a result, the throughput increases to 22.5K RPS with reasonable
-95-percentile response time (1.2ms). Compared with the solo-mode, 
-since LDom0 uses only half of LLC capacity, this tail response time is 
-slightly longer. Overall, these experimental results show that even the total 
-server CPU utilization is 100\% (all four cores are fully busy),
-memcached's behaviors can still approach the solo mode.
-
-This experiment demonstrates that the ``\emph{trigger$\Rightarrow$action}'' mechanism 
-is able to take the advantage of PARD and is beneficial for balancing the trade-offs between
-resource utilization and applications' QoS.
-
-
-\subsubsection{Disk I/O Performance Isolation}\leavevmode
-
-PARD is able to manage not only capacity resources (e.g., LLC)
-but also bandwidth resources such as memory and I/O bandwidth.
-In this experiment, two LDoms are active and each LDom executes
-disk write operation through
-this command: ``\emph{dd if=/dev/zero of=/dev/sdb bs=32M count=16}''.
-
-Initially, two LDoms share the IDE controller so that they exhibit the same
-disk I/O bandwidth. Assume the user of LDom1 pays more money in order to get
-better I/O performance, we manually ran
-``\emph{echo 80 $>$ /sys/cpa/cpa3/ldom0/parameters/bandwidth}''
-to program the IDE control plane
-to increase the disk I/O bandwidth quota of LDom0 to 80\%.
-Figure \ref{fig:pardsim:iosched} illustrates the effect of disk I/O
-bandwidth reallocation.
-
-Although there are other approaches to manage I/O bandwidth such as cgroup \cite{cgroup},
-PARD provides a more efficient fine-grained I/O management scheme that requires
-no modifications to OS kernel and applications, reducing the complexity of software
-stack.
-
-\begin{figure}[tb]
-\begin{minipage}{0.48\textwidth}
+\begin{figure}[H]
   \centering
-  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-resptime}
-  \caption{模拟器memcached 95\%-tail延迟示意图}
-  \label{fig:pardsim:memcached-resptime}
-\end{minipage}\hfill
-\begin{minipage}{0.48\textwidth}
-  \centering
-  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-20krps-missrate}
-  \caption{模拟器memcached末级缓存命中率变化（20KRPS）}
-  \label{fig:pardsim:memcached-20krps-missrate}
-\end{minipage}
+  \includegraphics[width=0.6\textwidth]{hwres/pard-dp-fw-upgrade}
+  \caption{数据平面处理器兼容性固件更新状态图}
+  \label{fig:pard-dp-fw-upgrade}
 \end{figure}
 
-\begin{figure}[tb]
-  \centering
-  \includegraphics[width=0.5\textwidth]{hwres/pard-sim-iosched}
-  \caption{磁盘I/O性能隔离}
-  \label{fig:pardsim:iosched}
-\end{figure}
+在收到更新固件命令后进入Drain状态，阻止请求继续发送到数据平面处理器，
+等待数据平面处理器处理完全部请求，并将请求队列排空后，使处理器进入Isolated隔离状态；
+之后完成对固件代码的更新，新的固件代码开始运行后，开始进行初始化操作，
+其中包括旧固件的状态数据迁移步骤；
+在所有的初始化操作完成后，处理器恢复到就绪状态，重新开始处理请求，
+至此完成数据平面处理器固件代码的兼容性更新操作。
+
 
 \section{小结}
 
