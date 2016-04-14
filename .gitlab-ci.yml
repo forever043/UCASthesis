@@ -1,0 +1,11 @@
+build_pdf:
+  script:
+   - uname -a
+   - xelatex --version
+   - pwd
+   - make
+  tags:
+    - texlive-2014
+  artifacts:
+    paths:
+      - main.pdf
