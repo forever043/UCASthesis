@@ -343,6 +343,7 @@ PARD对用户提供了逻辑域抽象，因此简单的标签方案可以直接�
 \end{figure}
 
 \subsection{如何为请求打标签}
+\label{chap:labeladdrspace:tagging}
 在确定了标签的格式与内容后，需要将该标签打到对应的请求上。
 在计算机中存在两个请求发起源，即处理器核与I/O设备的DMA引擎，
 需要在这两个请求源将应用标签标记到请求上。
@@ -405,6 +406,7 @@ APIC使用请求中的应用标签来获取相关的映射表，
 
 
 \section{标签传播}
+\label{chap:labeladdrspace:propagation}
 
 标签需要伴随请求在整个生命周期中传播，
 这些不同类型的请求需要在各种协议类型的总线上传播（如QPI/HT、AXI、PCI-E等），

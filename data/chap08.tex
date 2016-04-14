@@ -7,3 +7,52 @@
 \chapter{结束语}
 \label{cha:concl}
 
+This paper presented a study of building DiffServ in computer
+servers via architectural support. We proposed programmable
+architecture for resourcing-on-demand(PARD) and developed a
+Linux-based firmware to facilitate programming PARD. We implemented
+PARD on both a full-system simulator and an FPGA
+development board. Our experiments demonstrated that PARD is
+able to address the trade-offs between high utilization and high
+QoS in datacenter environments.
+
+We believe that architectural support for DiffServ in computers
+is a promising trend as the number of cores keeps increasing. PARD
+makes a case for this direction and provides new interfaces for users
+to interact with the hardware. However, there are still a lot of open
+issues such as
+
+how to translate applications’ QoS requirements into efficient
+“trigger)action” rules?
+
+how to leverage compilers to automatically generate trigger
+rules?
+
+how to make OS directly run on PARD server to support
+process-level DiffServ?
+
+how to support fine-grain Diffserv for not only process-level but
+also thread-level or even C++/Java object-level?
+
+how to support nested DiffServ, i.e., guarantee QoS of a process
+within a LDom?
+ 
+how to deal with simultaneous multithreading (SMT)?
+ 
+how to deal with multiple processors issues such as cache coherency?
+
+how to extend DiffServ to accelerators, e.g., enabling an encryption
+engine to encrypt/decrypt LDoms with specific DS-id?
+
+how to integrate PARD and SDN so that DS-id can be propagated
+in a data center wide?
+
+how to design and deploy security policy on PARD servers?
+
+how to develop firmware applications to take advantage of
+PARD?
+
+To facilitate further optimization and exploration, we
+release the PARD-gem5 simulator that is available at
+https://github.com/fsg-ict/PARD-gem5.
+
