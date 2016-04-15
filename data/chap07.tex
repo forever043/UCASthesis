@@ -289,20 +289,81 @@ DP口请求地址重映射与内存控制器控制平面的实现相同，不同
 
 前三节使用microbenchmark：stream测带宽、spec测ipc
 
+由于MicroBlaze的TLB中没有类似AccessBit的访问历史信息，
+在当前的linux kernel实现中TLB替换策略使用的是clock算法，
+这造成应用在运行过程中频繁发生TLB miss与重填动作，
+大约有一半以上的时间花费在kernel中执行TLB相关操作，
+造成corecp和cachecp统计的IPC与命中率不准确。
+为了得到准确的IPC与命中率信息，
+我们将部分应用（429.mcf、cacheflush microbenchmark）移植到uboot环境下，
+由于在uboot环境中由于并没有开启MMU，因此不会受到TLB的影响。
+而像memcached这样的应用，对操作系统的依赖很大，无法移植，
+但这样的应用我们只关注其端到端的性能，因此这些性能上的差异可以忽略。
+
+
 \subsection{区分化服务}
 
-两个LDom运行相同的应用（stream，mcf，memcached），分配不同的cache容量，比较其性能。
+在PARD中使用逻辑域的抽象，可以为不同的逻辑域分配不同的资源，
+本节将测试PARD如何为相同的应用分配不同的资源，以实现区分化服务的功能。
+在本节的测试中将同时运行两个逻辑域，其配置完全相同，都包含一个处理器核和1GB的内存，
+在其中运行相同的应用，通过cacehcp调整其缓存容量的分配，实现区分化服务。
 
-画图：
- mcf: IPC随时间变化，两个LDom对比
- memcached: RPS随时间变化，两个LDom对比
- stream: 带宽对比
+\textbf{TODO: stream在不同cache容量下的表现}
+
+
+图\ref{fig:diffserv-mcf-ipc-hitrate}给出了mcf的测试结果，在本实验中两个逻辑域分别分配了4路和12路的缓存容量，
+从总执行时间上可以看到两者存在明显的差别，
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{impl/diffserv-mcf-ipc-hitrate}
+  \caption{区分化服务：429.mcf}
+  \label{fig:diffserv-mcf-ipc-hitrate}
+\end{figure}
+
+
+\textbf{TODO: memcached在不同Cache容量下的表现}
+
+为了评估在内存控制器控制平面提供的区分化服务功能，在本实验中关闭了Cache模块，
+让处理器的访存请求直接发送到内存控制器。
+使用stream测试单个逻辑域的访存带宽为19.8MB/s，以此作为对比的基线。
+在测试过程中，我们发现内存控制器的性能要远高于四个MicroBlaze处理器同时访存的需求，
+为了进行本实验，需要对原型系统进行修改，使内存控制器发生资源竞争，
+具体做法如下：将第四个处理器核更换为一个访存负载发生器，由它持续向内存控制器发送访存请求，
+为了保证系统正确运行，该负载发生器只生成读请求，其余三个处理器核分别运行逻辑域，
+并在其中使用stream发送读请求测试访存带宽。
+在内存控制器控制平面为这三个逻辑域设置不同的优先级，同时为负载发生器设置为低优先级。
+图\ref{fig:diffserv-stream-generator}给出了评测结果，
+可以看到三个逻辑域的访存性能有明显的区分，相比于基线分别有89\%、52\%和36\%的带宽下降，
+而负载发生器本身的访存带宽也从268MB/s下降到100MB/s。
+目前内存控制器调度策略只实现了三个优先级，无法对每个逻辑域带宽进行精确控制，
+后续可以对策略进行修改，以实现基于目标带宽的调度策略。
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.5\textwidth]{impl/diffserv-stream-generator}
+  \caption{区分化服务：访存优先级}
+  \label{fig:diffserv-stream-generator}
+\end{figure}
 
 \subsection{性能隔离}
 
 一个LDom运行关键应用（如mcf或stream），另外三个LDom进行干扰，
  - 通过cache划分，实现性能隔离；
  - 在mig前增加干扰，保证关键应用性能不受影响
+
+图\ref{fig:isolation-mcf-ipc-hitrate}给了隔离测试结果，LDom\#0运行mcf，
+另外三个逻辑域运行干扰应用，单独运行时独占所有16路的Cache，执行时间大约为150秒；
+与三个干扰应用同时运行时，执行时间延长到222秒，大约增加了48\%；
+使用隔离的方式，将12路Cache分配给mcf，性能恢复，只增加了7\%的执行时间。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{impl/isolation-mcf-ipc-hitrate}
+  \caption{性能隔离：429.mcf}
+  \label{fig:isolation-mcf-ipc-hitrate}
+\end{figure}
+
 
 \subsection{策略生效时间}
 \label{chap:impl:trigger-latency}
@@ -328,10 +389,10 @@ DP口请求地址重映射与内存控制器控制平面的实现相同，不同
 
 但数据平面处理器的引入也给性能造成影响，第\ref{chap:impl:dp-latency}节将对性能数据平面处理器的性能进行分析。
 
-\subsection{实际应用测试}
 
-使用memcached测试，加入trigger=>action机制，得出与模拟器相同的结果
-
+%\subsection{实际应用测试}
+%
+%使用memcached测试，加入trigger=>action机制，得出与模拟器相同的结果
 
 \subsection{数据平面处理器延迟分析}
 \label{chap:impl:dp-latency}
