@@ -199,29 +199,32 @@ Intel使用Performance Counter机制实现资源监控，通过软件设定监�
 
 
 \subsection{资源调整机制}
-\textbf{本节主要写ttab和trigger$\Rightarrow$action}
 
-To facilitate
-operators to define resource management policies and program
-control planes, PARD provides not only basic priority-based rules
-but also an advanced ``trigger$\Rightarrow$action'' programming methodology.
+除了上节所描述的基本资源监控与管理机制，
+PARD还提供了名为``trigger$\Rightarrow$action''编程方法，
+用于实现更为灵活高效的资源管理策略。
 
-As shown in Figure 3, operators can define several DS-id tag
-based “trigger)action” rules each of which targets a set of hardware
-resources. Particularly, triggers are based on performance
-metrics such as LLC miss rate and are stored in trigger tables; an
-action (a.k.a., trigger handler) can be written in any languages as
-long as they support file primitives. Operator-defined rules are installed
-in the device file tree of the firmware. It is worth noting that
-thank to the centralized PRM, trigger and action can be designated
-to different resources. For instance, if a trigger is created to monitor
-memory bandwidth, its action can be defined to adjust LLC capacity
-because LLC miss rate is strongly correlated with both memory
-bandwidth and LLC capacity.
-Data center operators define actions and “trigger)action” rules
-to represent different resource management policies that are correlated
-to service-level agreements (SLA) so that users can choose
-suitable SLA according to their QoS requirements.
+如图\ref{}所示，trigger是基于状态表中某一统计信息（如IPC、缺失率、延迟等）的触发条件，
+action是对针对该触发条件所执行的动作，因此action也可以被称做是trigger-handler。
+触发条件保存在控制平面的触发表中，而与之对应的action动作则是由系统管理员编写，并存储在PRM的固件中。
+系统管理员可以为每个应用标签设定不同的``trigger$\Rightarrow$action''规则，
+以实现不同的资源管理策略。
+
+由于action动作是运行在PRM固件内，因此可以使用任何语言来编写，
+并通过PRM提供的方法使其于触发条件建立关联，并在触发条件满足时自动调用。
+同时，由于PRM可以控制系统内所有的控制平面，trigger和action可以针对不同的硬件资源进行设定。
+例如，可以设定一个监控访存带宽的触发条件，但它的触发动作却是调整共享末级缓存的容量，
+以此影响其命中率，进一步实现访存带宽的调整。
+通过这种跨硬件资源的触发规则，可以实现更为灵活的节点内硬件资源协同管理。
+
+根据应用的需求为每个应用编写适当的触发规则是一个十分复杂的工作，
+但数据中心管理员可以根据不同的资源管理策略，
+预定义多种不同的``trigger$\Rightarrow$action''触发规则与动作，
+并依此为用户提供不同级别的SLA（Service-Level Agreements）。
+用户根据自己的QoS需求选择合适的SLA，通过这些预定义的触发规则与动作来满足其QoS需求。
+
+本节所描述的``trigger$\Rightarrow$action''编程方法与上一节所描述的资源监控与管理的编程接口
+将在第\ref{chap:prm}中进行统一介绍。
 
 
 \subsection{通用控制平面微体系结构设计}
@@ -260,27 +263,21 @@ PRM通过该模块来访问三个控制表。
 
 控制平面网络接口模块使用寄存器窗口的方式对外提供控制表的访问，
 如图\ref{fig:pard-cp-intf}所示。
-For the underlying implementation of the control plane tree, the
-PRM reserves a 64KB (16 bits) I/O address space for mapping the
-control plane adaptors (CPA). In particular, each CPA occupies 32
-bytes whose definition is shown in the topright of Figure 6: two
-fields IDENT and IDENT HIGH (12 bytes in total) represents the
-ident node of the tree; the 32-bit type field indicates the type of
-a control plane; the 32-bit addr field contains 16-bit DS-id, 14-
-bit offset designating the column of a table and, 2 bits for table
-selection; the 32-bit cmd field specifies either READ operation or
-WRITE operation to a selected table; finally, the 64-bit data field
-depends on the cmd field. The content of data field is filled by users
-if the cmd is WRITE operation. In contrast, it is filled by a control
-plane and is read by users.
+系统内所有的控制平面都被映射到一段连续的16位I/O地址空间中（64KB），
+每一个控制平面在其中使用32个字节用于映射其控制寄存器，控制寄存器的定义如图\ref{fig:pard-cp-intf}所示。
+其中IDENT和IDENT\_HIGH两个寄存器（总计12字节）存储该控制平面的名字，
+type寄存器表示该控制平面的类型，
+address/cmd/data三个寄存器用于实现对控制平面中控制表的访问。
+其中address寄存器包含16位的逻辑域标签DS-id、2位的控制表选择、以及14位的列偏移，
+通过该寄存器实现对控制表项的寻址，而cmd寄存器用于指定对该控制表项的操作，
+当前的实现中只包含读、写两种类型的操作。
+对于写操作，用户需要提前将数据写入到data寄存器，而对于读操作data寄存器的写入操作由控制平面硬件完成，
+用户可以从该寄存器中读取所选择的控制表项内容。
 
-To program a control plane, a driver first writes data into the
-addr field to select a table cell by a DS-id (row) and an offset
-(column). If a user intends to modify the table, the driver fills
-the data filed and then writes the WRITE command into the cmd
-field. For reading data from the control plane, after the addr field is
-initialized, the driver writes the READ command into the cmd field
-and then reads the data field.
+PRM通过以上描述的寄存器接口实现对控制平面的编程，具体流程如下：
+控制平面驱动首先将目标表项的地址写入到地址寄存器，其中包括逻辑域标签DS-id（行）以及表项偏移（列）。
+如果用户的操作是修改表项，则驱动首先将新的表项写入到data寄存器，然后在命令寄存器中写入WRITE命令；
+如果是对表项的查询操作，则直接向命令寄存器写入READ命令，并在操作完成后从data寄存器中读取数据。
 
 \begin{figure}[tb]
   \centering
@@ -292,18 +289,10 @@ and then reads the data field.
 
 \subsection{控制平面示例}
 
-This subsection presents how to design component-specific control
-planes based on the basic control plane structure described in
-x3. We focus on the LLC control plane and the memory control
-plane, whose microachitecture are shown in Figure \ref{fig:pard-cache-cpdesign}
-and Figure \ref{fig:pard-mig-cpdesign}.
-If comparing the two figures, we can see that their bottom half
-exhibit almost the same structure with only slightly different table
-columns. Thus, this basic structure can be easily integrated into a
-variety of hardware components,
-For I/O devices, we add control planes into I/O bridge and IDE.
-Since the design of these I/O control planes is similar to that of the
-memory control plane, here we omit their detail design.
+本节将以处理器末级缓存和内存控制器为例，介绍如何将控制平面集成到硬件部件中，
+图\ref{fig:pard-cache-cpdesign}和图\ref{fig:pard-mig-cpdesign}是已经增加了控制平面的微体系结构示意。
+对比这两者可以发现，其控制平面具有相同的结构，只是控制表的内容存在差别，
+该通用的控制平面结构可以很容易的集成到不同的硬件部件中，而只需要对其控制表及硬件接口部分进行修改。
 
 \textbf{共享末级缓存控制平面}\quad
 图\ref{fig:pard-cache-cpdesign}是共享末级缓存控制平面的微体系结构示意图，
@@ -388,7 +377,7 @@ memory control plane, here we omit their detail design.
 为了防止低优先级访存请求干扰并降低高优先级访存请求的行缓冲命中率，
 在DRAM芯片中为高优先级内存请求增加了一个额外的专用行缓冲。
 如果需要为DRAM芯片增加更多的优先级控制能力，
-可以参考NEC的virtual-channel memory（VCM）技术。
+可以参考NEC的virtual-channel memory（VCM）\cite{nec-vcm}技术。
 
 在添加了以上机制后，当一个带有DS-id的内存访问请求到达内存控制器时，
 将会顺序引发下列操作：
