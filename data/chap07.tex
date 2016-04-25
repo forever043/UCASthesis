@@ -7,12 +7,20 @@
 \chapter{PARD原型系统实现与验证}
 \label{chap:impl}
 
-%FPGA原型设计目标
-上一章已经讨论过如何在X86平台上实现PARD，本章讨论如何在gem5全系统模拟器上将PARD机制
-实现其中。验证功能可行性，
+基于前四章的设计，本章实现了资源管理可编程体系结构PARD的原型系统，
+包括基于gem5的全系统模拟器实现以及Xilinx VC709平台上的FPGA原型。
+之前的章节中已经通过模拟器对PARD体系结构的部分功能进行了验证，
+本章将着重介绍FPGA原型系统，具体安排如下：
+首先对模拟器平台进行介绍，然后介绍FPGA原型系统的设计与实现，
+包括整个系统以及控制平面、数据平面的实现，
+最后对FPGA原型系统的功能以及开销进行分析。
+
+\section{PARD模拟器}
 
 
-\section{基础系统选择}
+\section{FPGA原型系统}
+
+\subsection{基础系统选择}
 
 实现PARD原型系统的第一个工作是选择一个合适的基础系统，
 PARD对基础系统有以下需求：
@@ -72,7 +80,7 @@ MicroBlaze同时还提供了硬件调试接口，可以通过JTAG对其进行调
 实现真正的多核系统。
 
 
-\section{PARD原型系统}
+\subsection{PARD原型系统架构}
 
 PARD原型系统架构如图\ref{fig:pard-arch-impl}所示，
 该系统由处理器子系统、I/O子系统、PRM SoC三部分组成。
@@ -163,9 +171,7 @@ I/O子系统控制平面的设计将在第\ref{chap:impl:iocp}节进行讨论。
 % TODO: 增加资源使用情况，以及分模块的资源占用情况
 
 
-
-
-\section{PRM与软件栈实现}
+\subsection{PRM与软件栈实现}
 
 为何选择I2C，有何替代
 
