@@ -408,7 +408,8 @@ CiPE框架\cite{mars_directly_2011}可以直接测量和量化多核结构下应
 并以此为依据进行作业调度。
 Jason Mars等人设计的Bubble-Up\cite{mars_bubble-up:_2011}机制，
 通过使用气泡（Bubble）来代表内存子系统的可变压力情况，
-能准确预测在内存子系统中竞争共享资源而导致的性能下降。
+能准确预测在内存子系统中竞争共享资源而导致的性能下降，通过离线分析来决定最优的应用混合，
+Bubble-Flex\cite{yang_bubble-flux:_2013}工作在Bubble-Up离线的基础上，实现了在线的QoS管理。
 ReQoS\cite{tang_reqos:_2013}提供了一种编译技术与运行时环境相结合的方法，
 通过编译的方法标识出低优先级应用中可能引起竞争的代码段，
 通过运行时环境调节低应用级应用的执行来确保这些代码段不会对高优先级应用的服务质量造成影响。
@@ -417,17 +418,57 @@ ReQoS\cite{tang_reqos:_2013}提供了一种编译技术与运行时环境相结�
 
 
 \textbf{硬件服务质量保障技术}\quad
-Kasture and Sanchez propose Ubik \cite{kasture_ubik:_2014},
-a cache partitioning policy that characterizes and leverages the transient
-behavior of latency-critical applications to maintain their target tail latency.
-Vantage \cite{sanchez_vantage:_2011} implements fine-grained cache partitioning
-using the statistical properties of Zcaches \cite{sanchez_zcache:_2010}.
-Utility-based cache partitioning (UCP) \cite{qureshi_utility-based_2006}
-strictly partitions the shared cache depending on the benefit of allocating
-different number of ways to each application.
-Muralidhara \emph{et al.} propose an application-aware memory channel
-partitioning (MCP) \cite{muralidhara_reducing_2011} to reduce memory system
-interference. However, these work usually focuses on only one type of resource while
+
+由于单纯使用软件技术无法解决应用在硬件层次的干扰，
+目前学术界和工业界在硬件层次上提出一系列方案，解决干扰问题。
+其中以处理器末级缓存与内存控制器上的硬件方案居多。
+
+针对处理器末级缓存容量的竞争，
+Kasture和Sanchez提出的Ubik\cite{kasture_ubik:_2014}，通过识别和利用延迟敏感型应用瞬时性的特点，
+调整缓存容量划分策略，来保证目标长尾延迟。
+UCP\cite{qureshi_utility-based_2006}提出了一种应用缓存容量需求的探测方法，
+为应用分配收益最大的缓存划分方案。
+由于受到工艺、面积以及能耗的限制，目前的处理器末级缓存关联度最大只有24，
+不足以分配给其上运行的应用，
+针对该问题ZCache\cite{sanchez_zcache:_2010}提出了一种新的缓存方法，将缓存路与关联度解耦，
+提高关联度为缓存容量划分提供更大的空间，
+Vantage\cite{sanchez_vantage:_2011}基于该缓存设计实现了一种细粒度的缓存容量划分方案。
+
+%Kasture and Sanchez propose Ubik \cite{kasture_ubik:_2014},
+%a cache partitioning policy that characterizes and leverages the transient
+%behavior of latency-critical applications to maintain their target tail latency.
+%Vantage \cite{sanchez_vantage:_2011} implements fine-grained cache partitioning
+%using the statistical properties of Zcaches \cite{sanchez_zcache:_2010}.
+%Utility-based cache partitioning (UCP) \cite{qureshi_utility-based_2006}
+%strictly partitions the shared cache depending on the benefit of allocating
+%different number of ways to each application.
+
+针对内存控制器上的竞争，
+Muralidhara等人提出了一种应用感知的内存通道划分技术MCP\cite{muralidhara_reducing_2011}，
+用于降低应用在内存子系统的干扰。
+以CMU的Onur Mutlu为代表的一些学术界专家提出一系列调度算法\cite{mutlu_stall-time_2007, mutlu_parallelism-aware_2008, kim_atlas:_2010, kim_thread_2010}
+以缓解内存控制器的不公平问题，从而提高系统吞吐量以及服务质量。
+但这些算法是固化的，并不能针对某个应用进行调节，不具有灵活性。
+
+Ravi Iyer提出了一种保障CMP体系结构上缓存Qos的管理框架\cite{iyer_cqos:_2004}，
+设计了CQos优先级分类、优先级分配和优先级执行。
+CQos优先级分类和优先级分配采用的是从用户到开发人员驱动的编译检测和基于流的方法；
+CQos优先级执行则包括（1）选择高速缓存分配（2）动静态结合设置分区（3）异构缓存区域。
+实验结果表明， CQoS在多线程或多核平台上能提高共享缓存的效率和系统性能。
+然而，该工作只是设计了一种QoS保障的框架，而并没有详细描述具体策略和软硬件支持。
+后续的工作\cite{iyer_qos_2007, li_dynamic_2012}中实现了一种在CMP平台上保障Qos的内存体系结构，
+允运行时的动态资源再分配，能在减少低优先级应用性能下降的同时优化高优先级应用的性能。
+
+Andrew Herdrich等人\cite{herdrich_rate-based_2009}证明了用于功耗管理的基于速率（rate-based）
+的技术能适应于CMP结构上缓存/内存的Qos管理，
+其基本方法是当正在运行的低优先级任务由于资源争用而干扰了高优先级任务的性能时，就减缓核心的处理速率。
+通过评估时钟调制和频率缩放这两个速率限制机制，发现时钟调制更适用于缓存/内存Qos管理。
+
+Ravi Iyer在体系结构支持服务质量方面做了一些有价值的工作，但主要集中在内存方面，并没有从整个系统角度去考虑。事实上，我们认为这个方向在未来会越来越重要，值得深入研究。
+
+
+
+However, these work usually focuses on only one type of resource while
 PARD is able to simultaneously manage all shared hardware resources winthin a server.
 
 Similar to PARD, NoHype \cite{keller_nohype:_2010} removes the virtualization layer
@@ -437,7 +478,7 @@ In contrast, PARD allows operators to dynamically partition a physical server in
 multiple LDoms. Furthermore, PARD supports ``\emph{trigger$\Rightarrow$action}''
 mechanism to deploy resourcing-on-demand resource management policies.
 
-以CMU的Onur Mutlu为代表的一些学术界专家在提出了一系列调度算法[44][45][46]以缓解内存控制器的不公平问题，从而提高系统吞吐量以及服务质量。但这些算法是固化的，并不能针对某个应用进行调节，不具有灵活性。
+
 
 Rafique \emph{et al.} \cite{Rafique:2006:ASO} propose a OS-driven hardware cache partitioning mechanism that tags
 cache requests and allows OS to adjust cache quota according to the tag.
@@ -449,9 +490,7 @@ The closest work to PARD is class-of-service based QoS architecture (CoQoS) \cit
 which assigns a priority tag to each on-chip request and allows cache/DRAM/NoC to
 schedule the request according to the priority tag.
 
-体系结构支持：Ravi Iyer在文章[30]中提出了一种保障CMP体系结构上缓存Qos的管理框架，设计了CQos优先级分类、优先级分配和优先级执行。CQos优先级分类和优先级分配采用的是从用户到开发人员驱动的编译检测和基于流的方法；CQos优先级执行则包括（1）选择高速缓存分配、（2）动静态结合设置分区、（3）异构缓存区域。实验结果表明， CQoS在多线程或多核平台上能提高共享缓存的效率和系统性能。然而，文章[30]并没有详细描述保障CMP体系结构上缓存Qos的具体策略和软硬件支持。所以，Ravi Iyer等人又在文章[31]中实现了一种在CMP平台上保障Qos的内存体系结构，允运行时的动态资源再分配，能在减少低优先级应用性能下降的同时优化高优先级应用的性能。Andrew Herdrich等人[32]证明了用于功耗管理的基于速率（rate-based）的技术能适应于CMP结构上缓存/内存的Qos管理，其基本方法是当正在运行的低优先级任务由于资源争用而干扰了高优先级任务的性能时，就减缓核心的处理速率。通过评估时钟调制和频率缩放这两个速率限制机制，发现时钟调制更适用于缓存/内存Qos管理。
 
-Ravi Iyer在体系结构支持服务质量方面做了一些有价值的工作，但主要集中在内存方面，并没有从整个系统角度去考虑。事实上，我们认为这个方向在未来会越来越重要，值得深入研究。
 
 
 \subsection{软件定义网络SDN}
