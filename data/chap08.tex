@@ -7,54 +7,113 @@
 \chapter{结束语}
 \label{cha:concl}
 
-\section{本文工作总结}
-This paper presented a study of building DiffServ in computer
-servers via architectural support. We proposed programmable
-architecture for resourcing-on-demand(PARD) and developed a
-Linux-based firmware to facilitate programming PARD. We implemented
-PARD on both a full-system simulator and an FPGA
-development board. Our experiments demonstrated that PARD is
-able to address the trade-offs between high utilization and high
-QoS in datacenter environments.
+%First, PARD is addressing a real problem today's
+%datacenters are facing, namely how to achieve predictable
+%performance for cloud services and high utilization of
+%shared resources.
+本文提出的资源管理可编程体系结构（PARD），针对的是当前数据中心所面临的真实问题，
+即如何在满足云服务性能可预测的前提下，通过资源共享提高数据中心的资源利用率。
+%The principle of PARD is inspired by a
+%new perspective: “the computer as a network”, which
+%guides us to think out of the box of computer architecture.
+PARD体系结构的核心源自于\textbf{``计算机内部本质上是一个网络''}这样一个观察，
+该观察指导本文从网络的视角重新思考计算机体系结构。
 
+%Modern computer networking (especially in the data
+%center area) borrows more and more concepts and
+%techniques from computer architecture.
+%In this work, we explorer the other direction:
+%networking ideas being applied to architecture.
+现代计算机网络，特别是数据中心网络，从计算机体系结构领域吸取了越来越多的理论与技术，
+而本文尝试探索了另一个方向，即将网络领域的想法应用到计算机体系结构中。
+%The key contribution of PARD,
+%extending current architecture to convey the high-level
+%QoS information to the hardware using tagging
+%mechanism, is inspired by the idea of DiffServ from
+%networking community, which have been successful
+%solved the end-to-end QoS problem in networking and
+%widely used in commercial network devices.
+PARD体系结构的核心贡献：
+``使用标签机制扩展体系结构，使其支持将高层的QoS语义信息传递到硬件''，
+即是受到了网络领域中区分化服务理论的启发，
+该理论在网络领域成功解决了端到端的服务质量保障问题，
+已经被广泛应用到现有的网络设备中。
+%The idea of SDN further motivated us to design a new
+%resource abstraction and provide a uniform programming
+%interface to allow programmers to access more underlying
+%hardware resources, which we believe is an enabling
+%technique for further exploration of PARD.
+PARD体系结构基于``控制平面''和``数据平面''的资源管理抽象，则是受到软件定义网络的启发。
+通过可编程的数据平面扩展硬件资源的可编程能力，
+同时使用控制平面抽象为用户提供了统一的硬件资源管理接口。
+相信这种硬件支持的可编程资源管理方式是未来服务器体系结构，
+特别是数据中心服务器体系结构的发展趋势。
 
-\section{下一步研究方向}
+%Second, we make QoS decisions programmable using
+%the proposed trigger/action mechanism, which introduces
+%the ability to trigger operations when particular low-level
+%architecture events occur (e.g., cache miss rate exceeds
+%some level). 
+%Since PARD’s control planes allow real-time
+%monitoring, applying control theory to dynamically adjust
+%resources becomes more feasible.
+%Moreover, it is
+%convenient for programmers to define data center wide
+%policies that respond to these triggers with low-level
+%resource reallocation defined using a uniform
+%programming interface.
+本文所提出的``trigger$\Rightarrow$action''机制为计算机提供了可编程的QoS决策支持。
+利用控制平面实时资源监控的特性，管理员可以在不同的性能指标上设定触发条件
+（如，处理器末级缓存缺失率超过某一指定范围），并得到实时的通知，
+这使得应用控制理论实现资源的动态调整成为可能。
+同时可以很容易通过统一的编程接口的将该方法扩展到整个数据中心范围，
+实现全局的动态资源管理。
+%This essentially allows the QoS
+%management from ground up, instead of enforcing QoS
+%when the violation happens.
+通过这样的方式，可以实现从底层硬件到上层应用的确定的QoS管理，
+而不是在发生QoS问题后去进行补救。
+%With the help of PARD we
+%can implement DiffServ policies in a data center without
+%resorting to large amounts of resource overprovisioning to
+%minimize tail latency.
+通过PARD提供的这些机制，实现了数据中心内共享资源的应用之间的区分化服务，
+保障延迟敏感关键应用的服务质量，防止由于过量的资源预留导致的资源浪费。
 
-We believe that architectural support for DiffServ in computers
-is a promising trend as the number of cores keeps increasing. PARD
-makes a case for this direction and provides new interfaces for users
-to interact with the hardware. However, there are still a lot of open
-issues such as
+%This paper presented a study of building DiffServ in computer
+%servers via architectural support. We proposed programmable
+%architecture for resourcing-on-demand(PARD) and developed a
+%Linux-based firmware to facilitate programming PARD. We implemented
+%PARD on both a full-system simulator and an FPGA
+%development board. Our experiments demonstrated that PARD is
+%able to address the trade-offs between high utilization and high
+%QoS in datacenter environments.
+最后，本文实现了PARD体系结构的全系统模拟器与FPGA原型系统，
+并对功能和开销进行验证、分析，
+结果表明PARD在有限的开销下实现了数据中心资源利用率与应用服务质量的平衡。
+%We believe that architectural support for DiffServ in computers
+%is a promising trend as the number of cores keeps increasing. PARD
+%makes a case for this direction and provides new interfaces for users
+%to interact with the hardware. However, there are still a lot of open
+%issues such as
+随着数据中心应用不断增加，以及服务器提供的资源（处理器核、内存、I/O等）不断增加，
+在体系结构上支持应用的区分化服务是未来计算体系结构是发展方向。
+PARD是在该方向上的尝试，并提供了一种实现硬件资源管理与应用区分化服务的软硬件接口。
+未来还需要大量的工作来完善该体系结构，这些问题包括但不限于：
 
-how to translate applications’ QoS requirements into efficient
-“trigger)action” rules?
-
-how to leverage compilers to automatically generate trigger
-rules?
-
-how to make OS directly run on PARD server to support
-process-level DiffServ?
-
-how to support fine-grain Diffserv for not only process-level but
-also thread-level or even C++/Java object-level?
-
-how to support nested DiffServ, i.e., guarantee QoS of a process
-within a LDom?
- 
-how to deal with simultaneous multithreading (SMT)?
- 
-how to deal with multiple processors issues such as cache coherency?
-
-how to extend DiffServ to accelerators, e.g., enabling an encryption
-engine to encrypt/decrypt LDoms with specific DS-id?
-
-how to integrate PARD and SDN so that DS-id can be propagated
-in a data center wide?
-
-how to design and deploy security policy on PARD servers?
-
-how to develop firmware applications to take advantage of
-PARD?
+\begin{itemize}
+  \item 如何将应用的QoS需求转换为高效的``trigger$\Rightarrow$action''规则？
+  \item 如何利用编译器自动生成trigger规则？
+  \item 如何在PARD服务器上直接运行操作系统，并支持进程级的区分化服务？
+  \item 如何实现比进程级更为细粒度的区分化服务，如线程级甚至是C++/Java对象级的区分化服务？
+  \item 如何实现嵌套的区分化服务，比如实现逻辑域中一个进程的服务质量保障？
+  \item 如何将PARD架构扩展到SMT场景？
+  \item 如何解决多处理器场景下带来的问题，比如多处理器缓存一致性问题？
+  \item 如何扩展PARD的区分化服务支持使其支持一些已有的硬件加速部件，例如使用加密部件实现特定逻辑域的加密与解密？
+  \item 如何将PARD与SDN网络集成，让体系结构内部的标签能够传播到整个数据中心？
+  \item 如何利用PARD体系结构提供的特性设计和部署安全策略，用以保障信息安全？
+  \item 如何为PARD资源管理提供一种编程模型，充分利用PARD提供的特性，并简化资源管理策略固件应用的编写？
+\end{itemize}
 
 To facilitate further optimization and exploration, we
 release the PARD-gem5 simulator that is available at

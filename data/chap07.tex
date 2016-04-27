@@ -17,6 +17,79 @@
 
 \section{PARD模拟器}
 
+As shown in Table \ref{tab:pard-sim-setup}
+PARD-gem5 is a cycle-accurate simulator that is able to simulate OoO X86 systems.
+In particular, we added tag registers in CPU cores,
+implemented LLC, memory controller, I/O bridge and
+IDE control planes.
+Table \ref{tab:pard-sim-cp} illustrates major
+content of the three tables of the LLC, memory and IDE control planes.
+We also implemented the PRM that is also based on an X86 processor running
+at 100MHz, 16MB DRAM, 32MB Flash, one Ethernet adaptor and four control plane adaptors (CPAs).
+The firmware running on the PRM is based on a tailored
+Linux kernel 2.6.28.4 with Busybox \cite{busybox} toolkit.
+
+With these efforts, PARD-gem5 is able to simulate a PARD server that can
+be partitioned into multiple LDoms. Each LDom can run unmodified Gentoo Linux
+with kernel 2.6.28.4 and memcached 1.4.17 \cite{memcached} of CloudSuite \cite{Ferdman:2012:cloudsuite} etc.
+
+
+\begin{table}[ht]
+  \centering
+  \begin{minipage}[t]{0.9\linewidth}
+  \caption{PARD模拟器参数}  
+  \label{tab:pard-sim-setup}
+    \begin{tabular*}{\linewidth}{rl}
+      \toprule[1.5pt]
+      CPU                  & 4 4-issue Out-of-Order X86 cores, 2GHz\\
+      L1-I/core            & 64KB 2-way, hit = 2 cycles \\
+      L1-D/core            & 64KB 2-way, hit = 2 cycles \\
+      Shared LLC           & 4MB 16-way, hit = 20 cycles \\
+      \hline
+      DRAM                 & 8GB DDR3-1600 11-11-11, 4Gbit chip (Micron MT41J512M8) \\
+                           & 1 channel, 2 ranks/channel, 8 banks/Rank \\
+                           & Burst Length = 8, Row buffer = 1KB \\
+                           & tCK=1.25ns, tRCD = 13.75ns, tCL = 13.75ns, tRP = 13.75ns, tRAS = 35ns, \\
+                           & tRRD = 6ns \\
+      \hline
+      Disks                & 4-channel IDE controller, 8 disks \\
+      \hline
+      Platform             & 100MHz X86 core, 16MB DRAM, 32MB Flash Storage \\
+      Resource             & 1 Ethernet adaptor  \\
+      Manager              & 4 control plane adaptors (CPA) \\
+      (PRM)                & Firmware: tailored Linux kernel 2.6.28.4 with Busybox \cite{busybox} \\
+      \hline
+      Server OS            & Gentoo Linux with kernel 2.6.28.4 \\
+      \hline
+      Workloads            & Memcached \cite{memcached}, SPECCPU 2006 \cite{cpu2006} \\
+                           & Microbenchmark: CacheFlush \& DiskCopy \\
+      \bottomrule[1.5pt]
+    \end{tabular*}\\[2pt]
+  \end{minipage}
+\end{table}
+
+\begin{table}[ht]
+  \centering
+  \begin{minipage}[t]{0.9\linewidth}
+  \caption{PARD模拟器控制平面控制表设计}
+  \label{tab:pard-sim-cp}
+    \begin{tabular*}{\linewidth}{rl}
+      \toprule[1.5pt]
+        \textbf{Parameter Table}  &   Cache: way mask-bits                               \\
+                                  &   Memory: row-buffer mask-bits, scheduling priority, address mapping \\
+                                  &   Disk: bandwidth                                    \\
+        \hline
+        \textbf{Statistics Table} &   Cache: miss rate, capacity                         \\
+                                  &   Memory: bandwidth, latency                         \\
+                                  &   Disk: bandwidth                                    \\
+        \hline
+        \textbf{Trigger Table}    &   LLC miss rate $\Rightarrow$ way mask-bits          \\
+                                  &   Memory latency $\Rightarrow$ row-buffer mask-bits  \\
+                                  &   Memory latency $\Rightarrow$ scheduling priority   \\
+      \bottomrule[1.5pt]
+    \end{tabular*}\\[2pt]
+  \end{minipage}
+\end{table}
 
 \section{FPGA原型系统}
 
