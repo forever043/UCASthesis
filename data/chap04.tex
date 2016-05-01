@@ -363,7 +363,7 @@ PARD对译码表进行扩充，在系统中预留多组译码表（组数由支�
 然后讨论如何在标签化地址空间的架构下，使用硬件逻辑来替代Hypervisor的工作。
 
 
-本文基于gem5\cite{gem5}模拟器，在X86指令集的TimingSimple访存模型下实现了标签化地址空间，
+本文基于gem5\cite{binkert_gem5_2011}模拟器，在X86指令集的TimingSimple访存模型下实现了标签化地址空间，
 本节将对该模拟器的实现进行简要分析，并讨论如何通过标签化地址空间实现无Hypervisor的全硬件支持的虚拟化。
 
 在第\ref{chap:labeladdrspace:related}节中介绍了现有技术中如何实现资源共享与性能隔离，
