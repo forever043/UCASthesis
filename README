@@ -11,7 +11,7 @@ UCASThesis 是中国科学院大学学位论文 LaTeX 模板，支持硕士、�
 版权须知
 ========
 Copyright (C) 2005-2013 by Xue Ruini <xueruini@gmail.com>
-Copyright (C) 2013-2014 derived by Chaolu <wuchaolu@gmail.com>
+Copyright (C) 2013-2016 derived by Chaolu <wuchaolu@gmail.com>
 
 This file may be distributed and/or modified under the
 conditions of the LaTeX Project Public License, either version 1.3a
@@ -25,11 +25,12 @@ version 2004/10/01 or later.
 
 使用须知
 ========
-1. 本模板需使用texlive 2014或以上版本编译。
-2. 确定系统中存在xfig依赖。
-3. 确保系统下存在相应的字体依赖，字体配置可由 
-  python zhfonts.py 
-  完成各字体的具体选择。
+1. 本模板需使用texlive 2014或以上版本、MikTex2.9或以上版本编译。
+2. 确定系统中存在xfig，transfig依赖(Mac OSX 系统可尝试通过port进行安装)。
+3. 确保当前系统已安装配置SimSun，SimHei，KaiTi，FangSong字体，如果您使用的是Linux和Mac OSX系统，请自行
+以“fc-cache 添加 win 字体”为关键字通过Google搜索解决方案)。
+备用方案：如果您并不想安装其他字体，而仅使用系统自带的兼容字体（不建议这样做），则可利用以下命令交互式地完成字体配置
+  python zhfonts.py
 
 使用方法
 ========
@@ -53,7 +54,8 @@ version 2004/10/01 or later.
 =============
 1. 如需以git方式获取，git clone https://github.com/xiaoyao9933/UCASthesis
 2. 如需直接获取压缩包文件，请下载 https://github.com/xiaoyao9933/UCASthesis/archive/master.zip
-3. 如需升级，git pull 或重新下载zip包即可
+3. 建议通过git pull方式更新模板，如果你之前已经完成论文的一部分写作，则可以通过下载新版模板包里的ucasthesis.cls、ucasthesis.cfg以及ucasthesis.dtx文件，替换至你的论文目录中完成模板更新；也可以通过下载新版模板后，拷贝入含有写作内容的main.tex,data/figures/ref目录进行更新。
+
 
 Makefile Howto (by xiaoyao9933 & edyfox & littleleo)
 ====================================================
