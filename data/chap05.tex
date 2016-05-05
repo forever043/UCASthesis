@@ -40,7 +40,7 @@
 \end{figure}
 
 在计算机系统中，通常使用反馈调节的方式实现应用服务质量保障。
-通过应用的服务质量需求制定调节目标，可能是单目标或复合的多目标；
+根据应用的服务质量需求制定调节目标，可能是单目标或复合的多目标；
 采集系统中与目标相关的状态信息，通过预测或条件触发的方式对可能发生的违例进行监控；
 当违例发生时，或预测到即将发生违例时，通过调节机制对资源进行重新分配，使系统满足目标。
 该过程如图\ref{fig:resource-manage-flow}所示，
@@ -92,7 +92,7 @@
 %为不同的硬件资源，提供了多种机制和策略用以实现资源管理。
 %但它们不能组合使用，因为没有一个统一的接口。
 
-问题：数据中心应用需要各不相同，需要不同的解决方案去实现资源管理，
+问题：数据中心应用需求各不相同，需要不同的解决方案去实现资源管理，
 没有一种可以适用所有的应用。负载不断变化，服务器需要为不同的应用准备多种机制和策略，
 但又需要对多种策略进行统一的管理。
 
@@ -108,7 +108,7 @@
 体系结构内，硬件部件相当于网络设备，需要一个统一架构实现资源管理。
 该架构需要具有以下特性：
 
-\begin{enumerate}[{(}1{)}]
+\begin{enumerate}[{（}1{）}]
   \item 能够适应不同类型的硬件资源
   \item 能够很容易的集成现有资源管理机制与策略
   \item 灵活的可编程策略实现
@@ -280,43 +280,71 @@ Intel RDT中的技术\cite{intel-cat}在Cache上增加了按路的缓存容量�
 %并指定计数器上限，当该事件的计数达到该上限时发起中断通知，
 
 \subsection{控制表抽象}
+\label{chap:hwresman:cp:table}
 
 % 数据平面屏蔽硬件之间的差异，控制平面做数据平面的接口
 % 数据平面需要控制参数、存储状态
 % 因此控制平面中使用参数表与状态表做这件事
+% There are various hardware components that behave differently
+% and use DS-id tags in different ways as well, e.g., LLC using DS-id
+% for capacity allocation while memory controller using DS-id for
+% bandwidth allocation.
+% We devise a basic control plane structure for a variety of components.
+% 表的具体结构，使用前一章提供的DS-id做索引，由数据平面对其列进行解析
 硬件部件有不同的行为，但这些行为的不同通过数据平面的抽象已经屏蔽，对于控制平面来说，
 它只是需要保存并数据平面的实时状态，同时为数据平面的机制提供参数。
-基于以上分析，控制平面使用控制表作为数据平面的接口，其中包括三个功能不同的控制表，
-分别是：
-参数表（Parameter Table），用于记录数据平面机制所需的参数，用户通过修改参数表实现对数据平面的控制；
-状态表（Statistics Table），用于记录数据平面的状态信息，具体记录什么样的状态信息由硬件资源及其数据平面决定；
+基于这2个需求，控制平面使用控制表作为数据平面的接口，其中包括：
+参数表（parameter table，ptab），用于记录数据平面机制所需的参数；
+状态表（statistics table，stab），用于记录数据平面的状态信息。
+通过第\ref{chap:labeladdrspace}章所提供的标签机制，控制平面能够区分出来自不同应用的请求，
+以上两个控制表都使用该应用标签进行索引（控制表行），
+控制表中具体记录什么样的控制参数与状态信息由硬件资源及其数据平面决定，
+用户通过修改两个控制表实现按应用区分的数据平面控制与状态获取。
 
-% 表的具体结构，使用前一章提供的DS-id做索引，由数据平面对其列进行解析
-% 请求到达后获取DS-id，查询参数表，获取参数，与请求一同传递到数据平面，并进行处理
-% 请求处理完成后，将更新的状态信息与DS-id送回到控制平面，并更新状态表
-硬件模块在收到请求后，使用请求中的应用标签DS-id查询参数表，获取需要的参数；
-统计信息表与硬件模块之间通过统计信息接口进行交互，硬件模块在完成一个请求后，
-通过该接口实现统计信息的更新。
-除此之外，控制平面中还包含连接控制平面网络（CPN）的接口模块，
-PRM通过该模块来访问三个控制表。
+硬件模块在收到请求后，使用请求中的应用标签DS-id查询参数表，获取需要的参数，
+并与请求一同传递到数据平面，由于参数表使用应用标签进行区分，因此来自不同应用的请求具有不同的参数；
+数据平面根据控制平面传递的参数对请求进行区分处理，并在请求处理完成后，
+将请求的DS-id与更新的状态信息送回控制平面，由控制平面完成状态表信息的更新。
 
-% 控制平面提供接口实现对所有控制表的访问，具体参见下文
-% 简单来说就是提供表访问的寄存器窗口，PRM通过控制平面网络实现访问
-
+所有的控制平面通过控制平面网络连接到PRM，由PRM实现对控制表的集中式管理，
+包括对不同硬件资源参数调整以及状态查询。
+为了保证性能监控的实时性，PRM需要不断轮询所有的控制平面，
+而在实际应用场景中，性能违例只是突发事件，使用轮询的方式进行检测是对PRM资源的浪费。
+%是只关心其中的部分状态信息，使用轮询的方式过于浪费，
+因此在控制平面中还提供一种条件触发机制来降低轮询所带来的开销，具体流程如下：
+1）PRM将当前关心的应用\&状态组合、通知条件提供给控制平面；
+2）控制平面在更新状态表时检查是否存在满足的条件；如果存在满足的条件，则
+3）通知中断机制通知PRM，并将条件满足的应用标签与状态信息与中断信息一同送往PRM。
 
 % 上面是poll的查询方式，需要大量的计算资源才能实现实时的状态更新
 % 提供了一个触发表，用于快速响应，其中存储了<DSid, stat-id, 临界值>，基于该触发表可以实现实时的资源调整机制，参见下节
-触发表（Trigger Table），记录状态触发条件与触发事件通知。
+控制平面使用额外的控制表``触发表（trigger table, ttab）''记录以上流程中应用\&状态组合和通知条件，
+与参数表和状态表不同的是，它同时使用应用标签与状态编号作为索引，
+每一个表项中同时记录了状态的临界值与触发条件，其中触发条件包括立即触发与延迟触发。
+立即触发是指当选择的状态达到临界值时立即向PRM发送通知；
+延迟触发还包含一个事件记数，只有在状态多次达到临界值时才向PRM发送通知。
+
+综上，控制平面由三个控制表构成，
+其中参数表与状态表负责实现与数据平面的接口，
+触发表提供了一种条件触发机制，能够实现低开销的实时监控。
+下一节将讨论如何利用控制表所提供的接口实现灵活的资源管理策略。
 
 
 \subsection{资源调整机制}
 
-% 基于上节的触发表，实现了``trigger$\Rightarrow$action''编程方法，用于实现资源调整
-除了上节所描述的基本资源监控与管理机制，
-PARD还提供了名为``trigger$\Rightarrow$action''编程方法，
-用于实现更为灵活高效的资源管理策略。
+基于第\ref{chap:hwresman:cp:table}节中的控制表抽象，
+特别是触发表提供的触发机制，
+本节设计一种名为``trigger$\Rightarrow$action''的编程方法，
+用于灵活高效的实现资源管理策略。
 
-如图\ref{}所示，trigger是基于状态表中某一统计信息（如IPC、缺失率、延迟等）的触发条件，
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.7\textwidth]{hwres/trigger-action-flow}
+  \caption{``trigger$\Rightarrow$action''编程方法示意图}
+  \label{fig:trigger-action-flow}
+\end{figure}
+
+如图\ref{fig:trigger-action-flow}所示，trigger是基于状态表中某一统计信息（如IPC、缺失率、延迟等）的触发条件，
 action是对针对该触发条件所执行的动作，因此action也可以被称做是trigger-handler。
 触发条件保存在控制平面的触发表中，而与之对应的action动作则是由系统管理员编写，并存储在PRM的固件中。
 系统管理员可以为每个应用标签设定不同的``trigger$\Rightarrow$action''规则，
@@ -335,20 +363,18 @@ action是对针对该触发条件所执行的动作，因此action也可以被�
 并依此为用户提供不同级别的SLA（Service-Level Agreements）。
 用户根据自己的QoS需求选择合适的SLA，通过这些预定义的触发规则与动作来满足其QoS需求。
 
-本节所描述的``trigger$\Rightarrow$action''编程方法与上一节所描述的资源监控与管理的编程接口
-将在第\ref{chap:prm}中进行统一介绍。
-
+%本节所描述的``trigger$\Rightarrow$action''编程方法与上一节所描述的资源监控与管理的编程接口
+%将在第\ref{chap:prm}中进行统一介绍。
 
 \subsection{通用控制平面微体系结构设计}
 
 综合以上控制平面功能与设计，其微体系结构如图\ref{fig:pard-cp-design}所示。
-PARD控制平面的核心是三个控制表，即参数表（Parameter Table，ptab）、
-统计信息表（Statistics Table，stab）和触发表（Trigger Table，ptab）。
+PARD控制平面的核心是三个控制表，即参数表、状态表和触发表。
 参数表与硬件模块之间通过参数接口（HW PARAM IF）进行交互，
-硬件模块在收到请求后，使用请求中的应用标签DS-id查询参数表，获取需要的参数；
-统计信息表与硬件模块之间通过统计信息接口进行交互，硬件模块在完成一个请求后，
-通过该接口实现统计信息的更新。
-除此之外，控制平面中还包含连接控制平面网络（CPN）的接口模块，
+硬件在收到请求后，使用请求中的应用标签DS-id查询参数表，获取需要的参数；
+状态表与硬件模块之间通过状态接口（HW STAT IF）进行交互，
+硬件在完成每一个请求后，通过该接口实现状态的更新。
+除此之外，控制平面中还包含连接控制平面网络的接口模块，
 PRM通过该模块来访问三个控制表。
 
 三个控制表都使用CAM+RAM的结构实现，
@@ -505,46 +531,80 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 
 （5）控制平面更新统计表并检查是否满足触发条件，如果满足则发送中断信号到PRM。
 
-\subsection{模拟器评测结果}
 
-\subsubsection{模拟器实现与评测场景}
+\subsection{模拟器实现与评测}
 
-\subsubsection{``Trigger$\Rightarrow$Action'' Mechanism Verification}
+本节在第\ref{chap:labeladdrspace:nohype}节所建立的模拟器基础上，
+按照本章所述方法对处理器末级缓存和磁盘控制器进行改造，包括：
+1）在处理器末级缓存中增加缓存容量划分功能，
+2）在磁盘控制器中增加基于带宽划分的调度功能。
+并为它们增加控制平面，同时在模拟器中模拟了基于X86-SoC架构的PRM，
+实现对这两个硬件资源的集中式管理。
 
-We partitioned the server into four LDoms and ran latency-critical memcached
-in LDom0. Because the simulation speed is too slow to simulate
-network environments, we ran both memcached
-client and server in one LDom where they share a CPU core. Although
-the client and server may contend for resources within a LDom, this contention
-in a blackbox is acceptable while we focus on the interference between LDoms.
-The other three LDoms all ran STREAM microbenchmark.
+修改后的模拟器最多支持启动4个逻辑域，
+能够通过PRM调整4个逻辑域对处理器末级缓存与磁盘控制器的资源分配，
+本节将使用该模拟器验证控制平面对资源分配的控制（磁盘控制器）、
+以及``trigger$\Rightarrow$action''机制的效果（处理器末级缓存），
+更多模拟器的实现细节将在第\ref{chap:impl:simulator}节中进行介绍。
 
-Figure \ref{fig:pardsim:memcached-resptime} illustrates the change of
-memcached's tail response time over different request loads.
-When memcached runs in the solo-mode (only LDom0 is active),
-it can serve 22.5K request per
-second (RPS) with reasonable 95-percentile response time (0.6ms). However,
-only one CPU core is fully busy, thus the total server CPU utilization is 25\% .
-If the other three LDoms are launched to share resources with LDom0,
-All four CPU cores are fully busy so that the server exhibits 100\% CPU utilization.
-Unfortunately, the throughput of memcached drops to 15K RPS while
-the 95-percentile response time already exceeds 1ms. When 
-the throughput increases to 20K RPS, the 95-percetile response time
-dramatically increases by two orders of magnitude (62.6ms). 
 
-To verify the the effectiveness of the ``\emph{trigger$\Rightarrow$action}'' mechanism,
-As shown in Figure \ref{fig:programming}, we predefined a trigger for LDom0, i.e.,
-``LLC.MissRate $>$ 30\% $\Rightarrow$ increasing LLC capacity up to 50\%''.
+\subsubsection{``trigger$\Rightarrow$action''机制验证}
 
-Next we installed the LLC trigger into the LLC control plane before launching
-LDom0 and then launched all four LDoms. Figure \ref{fig:pardsim:memcached-20krps-missrate} shows how
-LDom0's LLC miss rate varies while the trigger takes effect. After half of LLC capacity is
-dedicated to LDom0, memcached's LLC miss rate quickly decreases to
-only about 10\%, just slightly larger than the solo-mode's miss rate (7\%).
-As a result, the throughput increases to 22.5K RPS with reasonable
-95-percentile response time (1.2ms). Compared with the solo-mode, 
-since LDom0 uses only half of LLC capacity, this tail response time is 
-slightly longer. Overall, these experimental results show that even the total 
+本节利用``trigger$\Rightarrow$action''机制解决应用服务质量与服务器资源利用率冲突的问题，
+实验场景与配置如图\ref{fig:hwres-sim-config}所示：
+一台4核的PARD服务器被划分为4个逻辑域，其中LDom\#0中运行延迟敏感型应用memcached，
+其他3个逻辑域中运行批处理应用，考察资源共享对延迟敏感型应用性能的影响。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.5\textwidth]{hwres/hwres-sim-config}
+  \caption{``\emph{trigger$\Rightarrow$action}''机制验证实验配置}
+  \label{fig:hwres-sim-config}
+\end{figure}
+
+由于模拟器本身的模拟速度非常慢，增加网络环境模拟会进一步降低模拟速度，
+因此在实验时将memcached服务器与客户端运行在同一个逻辑域中，它们共享一个CPU核心。
+虽然服务器和客户端会在同一个逻辑域内发生资源竞争，
+但由于本文更多关注的是逻辑域（应用）之间的干扰，因此这种黑箱内部的竞争是可接受的。
+本实验使用STREAM benchmark\cite{stream}作为批处理应用，
+该benchmark会在处理器末级缓存产生严重的干扰，因此可以使实验效果更加明显。
+
+实验分为两步，
+首先使用模拟器的simple-timing模型来启动Linux操作，启动应用并建立checkpoint；
+然后使用Out-Of-Order（O3）模型恢复该checkpoint，最后的实验评估使用O3模型进行。
+受到模拟速度的影响，本实验只模拟了memcached应用的3秒钟执行（花费大约30个小时），
+其中第1秒是warm-up过程，后2秒才被用于评估。
+
+图\ref{fig:pardsim:memcached-resptime}展示了在不同请求负载下memcached的长尾响应时间。
+当memcached单独运行时（图中solo曲线），它能够满足22.5KRPS的请求负载，
+同时长尾（95\%-tail）响应时间也是在合理的范围（0.6ms）。
+然而，由于只1个处理器核在运行，此时服务器的利用率仅为25\%。
+如果另外三个逻辑也被启动运行，并与memcached所在的逻辑域共享资源，
+整个服务器达到100\%的利用率，
+但此时memcached的性能下降到15KRPS，并且长尾响应时间也超过了1ms。
+如果进一步提高请求负载到20KRPS，长尾响应时间增加超过两个数量级（62.6ms）。
+
+为了验证``\emph{trigger$\Rightarrow$action}''机制的效果，
+预先在PRM中为memcached所在的逻辑域LDom\#0定义了与图\ref{fig:trigger-action-flow}
+类似的触发规则：
+
+``\emph{LLC.MissRate $>$ 30\% $\Rightarrow$ 增加LLC容量到全部容量的50\%}''
+
+在启动所有的逻辑域前，将以上规则安装到处理器末级缓存控制平面中，
+图\ref{fig:pardsim:memcached-20krps-missrate}给出了实验过程中收集的处理器末级缓存缺失率，
+从图中可以看到当三个干扰应用运行后，memcached的缓存缺失率显示上升，
+并达到了规则设定的触发阈值（30\%），控制平面应用action动作，
+将一半的缓存容量划分给memcached所在的逻辑域，在此之后memcached的缓存缺失率显著下降，
+降低到10\%左右，只略高于单独运行时7\%的缺失率。
+最终在22.5KRPS的请求速率下，长尾响应时间只有1.2ms，
+由于memcached所能使用的处理器末级缓存只有单独运行时的一半，
+因此其长尾响应时间要略高于单独运行时的响应时间。
+
+总结来说，以上实验结果表明在``\emph{trigger$\Rightarrow$action}''机制的作用下，
+即使通过资源共享的方式提高服务器的资源利用率，
+仍然能够保障延迟敏感型关键应用（memcached）的性能。
+
+Overall, these experimental results show that even the total 
 server CPU utilization is 100\% (all four cores are fully busy),
 memcached's behaviors can still approach the solo mode.
 
@@ -567,7 +627,7 @@ resource utilization and applications' QoS.
 \end{minipage}
 \end{figure}
 
-\subsubsection{Disk I/O Performance Isolation}
+\subsubsection{磁盘I/O性能隔离}
 
 PARD is able to manage not only capacity resources (e.g., LLC)
 but also bandwidth resources such as memory and I/O bandwidth.
@@ -683,7 +743,17 @@ stack.
 \subsection{固件代码示例}
 本节将以三段不同功能的固件代码为例，介绍数据平面处理器的编程方法。
 
-\textbf{段式地址映射}\ 本示例用于实现PARD的内存控制器控制平面所提供的地址映射功能，该功能只需要对访存请求的地址进行修改，而请求的数据无需修改，我们将地址与数据分开由两个处理器进行处理，如图\ref{fig:pard-dp-ex-mapping}右所示。对于数据处理器，其固件代码只使用rbget/rbput指令对请求进行转发。地址处理器首先需要使用rbget指令获取当前请求到请求寄存器，并使用mfrb指令将其中的地址与DSid读取到通用寄存器；而后通过查表的方式获得该请求对应的映射目的地址的基址，对请求地址进行变换，并使用mtrb指令将变换后的地址写回到请求寄存器，最后通过rbput指令将新的访存请求从处理器中送出，完成地址映射功能。
+\textbf{段式地址映射}\quad
+本示例用于实现PARD的内存控制器控制平面所提供的地址映射功能，
+该功能只需要对访存请求的地址进行修改，而请求的数据无需修改，
+我们将地址与数据分开由两个处理器进行处理，
+如图\ref{fig:pard-dp-ex-mapping}右所示。
+对于数据处理器，其固件代码只使用rbget/rbput指令对请求进行转发。
+地址处理器首先需要使用rbget指令获取当前请求到请求寄存器，
+并使用mfrb指令将其中的地址与DSid读取到通用寄存器；
+而后通过查表的方式获得该请求对应的映射目的地址的基址，
+对请求地址进行变换，并使用mtrb指令将变换后的地址写回到请求寄存器，
+最后通过rbput指令将新的访存请求从处理器中送出，完成地址映射功能。
 
 \begin{figure}[H]
   \centering

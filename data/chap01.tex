@@ -25,7 +25,7 @@
 通过向多个副本发送请求，并选择最快返回的结果以达到干扰容忍的目的；
 R. Kapoor等人在文章\cite{Kapoor:2012:Chronos}中提出了Chronos架构，
 以降低数据中心应用的长尾延迟；
-另外一些工作\cite{timecard:2013, d2p:2014}尝试记录当个请求延迟的每个环节处理时间，
+另外一些工作\cite{timecard:2013, d2p:2014}尝试记录单个请求延迟在每个环节处理时间，
 然后在分布式处理框架中传播，基于这些传播的信息来进行请求的处理与调度。
 其二是在作业调度层次，通过profile的方式预测应用混合后的干扰情况，
 将相互之间干扰较小的应用部署到同一台服务器\cite{mars_bubble-up:_2011, kambadur_measuring_2012}。
@@ -78,7 +78,7 @@ Google的数据\cite{Reiss_googletrace_2012}发现大量的小于6分钟的应�
 其指令集抽象不足以将上层应用需求传递到下层硬件，
 在不能区分应用需求的前提下很难做到区分化服务。
 软件层次已有很多方案可以用于区分不同应用，如操作系统级的进程PID或cgroup，
-或更细粒度的应用级标签\cite{timecard:2013,d2p:2014, mesnier_differentiated_2011}。
+或更细粒度的应用级标签\cite{timecard:2013,d2p:2014, mesnier_differentiated_2011, thereska_ioflow:_2013}。
 硬件层次也需要一种应用需求传递机制，
 正如``21st Century Computer Architecture''白皮书中所提出的：
 
