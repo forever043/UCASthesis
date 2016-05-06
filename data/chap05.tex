@@ -108,7 +108,7 @@
 体系结构内，硬件部件相当于网络设备，需要一个统一架构实现资源管理。
 该架构需要具有以下特性：
 
-\begin{enumerate}[{（}1{）}]
+\begin{enumerate}[1{）}]
   \item 能够适应不同类型的硬件资源
   \item 能够很容易的集成现有资源管理机制与策略
   \item 灵活的可编程策略实现
@@ -334,20 +334,20 @@ Intel RDT中的技术\cite{intel-cat}在Cache上增加了按路的缓存容量�
 
 基于第\ref{chap:hwresman:cp:table}节中的控制表抽象，
 特别是触发表提供的触发机制，
-本节设计一种名为``trigger$\Rightarrow$action''的编程方法，
+本节设计一种名为``\emph{trigger$\Rightarrow$action}''的编程方法，
 用于灵活高效的实现资源管理策略。
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.7\textwidth]{hwres/trigger-action-flow}
-  \caption{``trigger$\Rightarrow$action''编程方法示意图}
+  \caption{``\emph{trigger$\Rightarrow$action}''编程方法示意图}
   \label{fig:trigger-action-flow}
 \end{figure}
 
 如图\ref{fig:trigger-action-flow}所示，trigger是基于状态表中某一统计信息（如IPC、缺失率、延迟等）的触发条件，
 action是对针对该触发条件所执行的动作，因此action也可以被称做是trigger-handler。
 触发条件保存在控制平面的触发表中，而与之对应的action动作则是由系统管理员编写，并存储在PRM的固件中。
-系统管理员可以为每个应用标签设定不同的``trigger$\Rightarrow$action''规则，
+系统管理员可以为每个应用标签设定不同的``\emph{trigger$\Rightarrow$action}''规则，
 以实现不同的资源管理策略。
 
 由于action动作是运行在PRM固件内，因此可以使用任何语言来编写，
@@ -359,11 +359,11 @@ action是对针对该触发条件所执行的动作，因此action也可以被�
 
 根据应用的需求为每个应用编写适当的触发规则是一个十分复杂的工作，
 但数据中心管理员可以根据不同的资源管理策略，
-预定义多种不同的``trigger$\Rightarrow$action''触发规则与动作，
+预定义多种不同的``\emph{trigger$\Rightarrow$action}''触发规则与动作，
 并依此为用户提供不同级别的SLA（Service-Level Agreements）。
 用户根据自己的QoS需求选择合适的SLA，通过这些预定义的触发规则与动作来满足其QoS需求。
 
-%本节所描述的``trigger$\Rightarrow$action''编程方法与上一节所描述的资源监控与管理的编程接口
+%本节所描述的``\emph{trigger$\Rightarrow$action}''编程方法与上一节所描述的资源监控与管理的编程接口
 %将在第\ref{chap:prm}中进行统一介绍。
 
 \subsection{通用控制平面微体系结构设计}
@@ -538,19 +538,19 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 按照本章所述方法对处理器末级缓存和磁盘控制器进行改造，包括：
 1）在处理器末级缓存中增加缓存容量划分功能，
 2）在磁盘控制器中增加基于带宽划分的调度功能。
-并为它们增加控制平面，同时在模拟器中模拟了基于X86-SoC架构的PRM，
+并为它们增加控制平面，同时在模拟器中模拟了基于X86-SoC的PRM，
 实现对这两个硬件资源的集中式管理。
 
 修改后的模拟器最多支持启动4个逻辑域，
 能够通过PRM调整4个逻辑域对处理器末级缓存与磁盘控制器的资源分配，
 本节将使用该模拟器验证控制平面对资源分配的控制（磁盘控制器）、
-以及``trigger$\Rightarrow$action''机制的效果（处理器末级缓存），
+以及``\emph{trigger$\Rightarrow$action}''机制的效果（处理器末级缓存），
 更多模拟器的实现细节将在第\ref{chap:impl:simulator}节中进行介绍。
 
 
-\subsubsection{``trigger$\Rightarrow$action''机制验证}
+\subsubsection{``\emph{trigger$\Rightarrow$action}''机制验证}
 
-本节利用``trigger$\Rightarrow$action''机制解决应用服务质量与服务器资源利用率冲突的问题，
+本节利用``\emph{trigger$\Rightarrow$action}''机制解决应用服务质量与服务器资源利用率冲突的问题，
 实验场景与配置如图\ref{fig:hwres-sim-config}所示：
 一台4核的PARD服务器被划分为4个逻辑域，其中LDom\#0中运行延迟敏感型应用memcached，
 其他3个逻辑域中运行批处理应用，考察资源共享对延迟敏感型应用性能的影响。
@@ -600,17 +600,10 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 由于memcached所能使用的处理器末级缓存只有单独运行时的一半，
 因此其长尾响应时间要略高于单独运行时的响应时间。
 
-总结来说，以上实验结果表明在``\emph{trigger$\Rightarrow$action}''机制的作用下，
-即使通过资源共享的方式提高服务器的资源利用率，
-仍然能够保障延迟敏感型关键应用（memcached）的性能。
-
-Overall, these experimental results show that even the total 
-server CPU utilization is 100\% (all four cores are fully busy),
-memcached's behaviors can still approach the solo mode.
-
-This experiment demonstrates that the ``\emph{trigger$\Rightarrow$action}'' mechanism 
-is able to take the advantage of PARD and is beneficial for balancing the trade-offs between
-resource utilization and applications' QoS.
+以上实验结果表明，即使4个处理器核全部都在工作，服务器资源利用率为100\%的情况下，
+memcached的性能仍然没有受到严重的影响。
+这证明``\emph{trigger$\Rightarrow$action}''机制能够利用PARD提供的硬件资源管理功能，
+实现服务器资源利用率与应用服务之间的平衡。
 
 \begin{figure}[tb]
 \begin{minipage}{0.48\textwidth}
@@ -627,27 +620,31 @@ resource utilization and applications' QoS.
 \end{minipage}
 \end{figure}
 
-\subsubsection{磁盘I/O性能隔离}
 
-PARD is able to manage not only capacity resources (e.g., LLC)
-but also bandwidth resources such as memory and I/O bandwidth.
-In this experiment, two LDoms are active and each LDom executes
-disk write operation through
-this command: ``\emph{dd if=/dev/zero of=/dev/sdb bs=32M count=16}''.
+\subsubsection{磁盘I/O带宽控制}
 
-Initially, two LDoms share the IDE controller so that they exhibit the same
-disk I/O bandwidth. Assume the user of LDom1 pays more money in order to get
-better I/O performance, we manually ran
+PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资源，
+同时能够管理基于流量的资源，如内存带宽与I/O带宽。
+本节验证控制平面对带宽的控制，这里使用磁盘I/O带宽作为实验目标。
+
+在本节的实验中，只使用模拟器中两个逻辑域，在其中使用以下命令执行磁盘写操作：
+
+``\emph{dd if=/dev/zero of=/dev/sdb bs=32M count=16}''
+
+初始状态下，两个逻辑域共享磁盘控制器且具有相同的优先级，由于它们执行的命令与参数完全相同，
+因此两个逻辑域所得到的磁盘I/O带宽完全相同。
+此时假设逻辑域LDom\#0的用户需要得到更好的I/O性能，例如云计算场景下通过更高的费用获取更快的性能，
+管理员可以在PRM内执行以下命令重新调整服务器中磁盘I/O带宽的分配，将80\%的带宽分配给该用户。
+
 ``\emph{echo 80 $>$ /sys/cpa/cpa3/ldom0/parameters/bandwidth}''
-to program the IDE control plane
-to increase the disk I/O bandwidth quota of LDom0 to 80\%.
-Figure \ref{fig:pardsim:iosched} illustrates the effect of disk I/O
-bandwidth reallocation.
 
-Although there are other approaches to manage I/O bandwidth such as cgroup \cite{cgroup},
-PARD provides a more efficient fine-grained I/O management scheme that requires
-no modifications to OS kernel and applications, reducing the complexity of software
-stack.
+该命令通过PRM对磁盘控制器控制平面（cpa3）进行编程，修改LDom\#0的带宽占比为80\%，
+图\ref{fig:pardsim:iosched}给出了磁盘I/O带宽分配的效果。
+
+虽然诸如cgroup\cite{cgroup}之类的方法也能提供类似的I/O带宽管理功能，
+但PARD所提供的资源管理方法能够在硬件层次实现更为细粒度的资源管理，
+同时无需对用户操作系统或应用进行任何的修改，降低了软件栈的复杂度与开销。
+关于控制平面的编程接口，以及如何在PRM中实现资源管理将在第\ref{chap:prm}章进行详细的介绍。
 
 \begin{figure}[tb]
   \centering
@@ -660,17 +657,27 @@ stack.
 \section{可编程数据平面设计}
 \label{chap:hwresman:dp}
 
-本节主要讨论可编程数据平面的设计，正如第\ref{}节中所述，
-在控制平面的基础上增加数据平面，是为了增强硬件的可编程能力；
-同时，PARD的触发机制存在一些问题，主要是
+正如本章引言所述，PARD的硬件资源管理机制包括控制平面与数据平面两部分，上一节对控制平面接口功能进行描述，
+本节主要针对数据平面的需求设计可编程数据平面。
 
-另一方面，PARD中的``trigger$\Rightarrow$action''机制在响应时间上存在瓶颈：
+需要能够适应不同的硬件，并为控制平面提供统一的管理接口；
+能够提供灵活的可编程机制；
+能够很容易的集成现有资源管理相关工作。
+
+可编程技术目前主要包括两类，一类是以FPGA为代表的硬件可编程，一类是使用处理器实现软件。
+
+基于xxxx的考虑，本文使用基于处理器的实现。
+
+另一方面，控制平面的``\emph{trigger$\Rightarrow$action}''机制在响应时间上存在瓶颈：
 每当触发条件发生后，需要经过控制平面网络将该事件传递到PRM，
 由运行在PRM中的软件代码来更新策略，并通过控制平面网络写回到控制平面中。
 由于受到控制平面网络延迟以及PRM软件代码延迟的影响，
 该机制并不能达到特别高的响应速度。
 同时并非所有的触发条件发生后都需要在PRM进行全局处理，
 完全可以预定义一些动作，在控制平面本地完成处理。
+
+本节后续内容将对数据平面处理器的设计以及资源管理机制的集成进行介绍，
+最后介绍数据平面运行时可编程的实现。
 
 \subsection{数据平面处理器体系结构}
 
@@ -682,17 +689,28 @@ stack.
 \end{figure}
 
 由于数据平面处理器位于请求处理的关键路径上，为了保障系统的性能不受影响，需要从以下三个方面进行考虑：
-（1）处理器需要执行一系列指令才能完成对请求的处理，因此处理器需要工作在比其所在硬件部件更高频率，以满足硬件部件的性能需求；
-（2）处理器的固件代码执行需要确定性，因此不能使用cache结构，而是使用scratchpad memory代替；
-（3）由于高频需求，因此处理器功能要尽可能简单，一些必需的复杂的逻辑（如数据压缩与加密等）通过外部加速器的方式进行扩展。
 
-基于以上需求，我们选择使用RISC作为数据平面处理器的基础架构，如图\ref{fig:pard-dp-proc}所示。我们首先对传统RISC架构进行精简，只保留其基本功能，以保证其频率需求；同时增加scratchpad memory作为其指令与数据存储，增加请求缓存接口用于接入硬件设备中，增加控制平面接口用于连接控制平面。
-从第2章可知，对于内存控制器与Cache，该处理器的主要工作包括：对请求进行调度、地址变换，对数据进行处理，生成控制信号（如Cache缓存与替换）。要完成以上工作，该处理器需要具备基本的处理器功能外，还需要在数据类型、存储模型和指令上进行扩展。
+\begin{enumerate}[{（}1{）}]
+  \item 处理器需要执行一系列指令才能完成对请求的处理，因此处理器需要工作在比其所在硬件部件更高频率，以满足硬件部件的性能需求；
+  \item 处理器的固件代码执行需要确定性，因此不能使用cache结构，而是使用scratchpad memory代替；
+  \item 由于高频需求，因此处理器功能要尽可能简单，一些必需的复杂的逻辑（如数据压缩与加密等）通过外部加速器的方式进行扩展。
+\end{enumerate}
 
+基于以上需求，本文最终选择使用RISC作为数据平面处理器的基础架构，如图\ref{fig:pard-dp-proc}所示，并对其进行修改以适应数据平面处理器的需求。
+包括：1）架构精简，只保留其基本功能，以满足频率需求；
+2）增加scratchpad memory作为指令与数据存储；
+3）增加请求缓存接口用于接入硬件设备中；
+4）增加控制平面接口用于连接控制平面。
+由第\ref{chap:hwresman:res}节可知，对于内存控制器与处理器末级缓存，该处理器的主要工作包括：
+对请求进行调度、地址变换，对数据进行处理，生成控制信号（如Cache缓存与替换）。
+要完成以上工作，该处理器需要具备基本的处理器功能外，还需要在数据类型、存储模型和指令上进行扩展。
 
 \subsubsection{数据类型}
 
-数据平面处理器中执行的算法代码大都只是对输入的请求进行处理，因此我们只有``无符号整数''和``请求''两种数据类型，如图\ref{fig:pard-dp-datatype}所示。无符号整数的长度与处理器的位宽相同，都被设置为其所属硬件的位宽，以节约请求处理时位宽转换的开销，保障请求处理的效率。
+数据平面处理器中执行的算法代码大都只是对输入的请求进行处理，
+因此该处理器只有``无符号整数''和``请求''两种数据类型，如图\ref{fig:pard-dp-datatype}所示。
+无符号整数的长度与处理器的位宽相同，都被设置为其所属硬件的位宽，
+以节约请求处理时位宽转换的开销，保障请求处理的效率。
 
 \begin{figure}[H]
   \centering
@@ -701,15 +719,41 @@ stack.
   \label{fig:pard-dp-datatype}
 \end{figure}
  
-``请求''类型的是一个变长数据类型，其中包含了固定的16位应用标签（DSid）以及变长的请求数据。以访存请求为例，其中包含请求地址、长度、线程号、读写类型、锁与缓存状态等其他一些标志位；对于Cache替换请求，其中包含了请求地址、Hit/Miss标记以及其他一些标志位等信息。图\ref{fig:pard-dp-datatype}给出了访存请求以及Cache替换请求类型的示例。数据平面处理器本身并不关心请求类型中具体每个位的意义，而只是将其做一个整体进行处理，对每个域的解析或修改由其运行的固件代码完成。
+``请求''类型的是一个变长数据类型，其中包含了固定的16位应用标签（DS-id）以及变长的请求数据。
+以访存请求为例，其中包含请求地址、长度、线程号、读写类型、锁与缓存状态等其他一些标志位；
+对于Cache替换请求，其中包含了请求地址、Hit/Miss标记以及其他一些标志位等信息。
+图\ref{fig:pard-dp-datatype}给出了访存请求以及Cache替换请求类型的示例。
+数据平面处理器本身并不关心请求类型中具体每个位的意义，而只是将其做一个整体进行处理，
+对每个域的解析或修改由其运行的固件代码完成。
 
 \subsubsection{存储模型}
-数据平面处理器中程序员可见的存储结构包含寄存器、请求缓存、scratchpad memory、I/O地址空间四部分。与传统的RISC架构相同，数据平面处理器包含32个通用寄存器（R0-R31），用于进行算数逻辑运算，其中R0是常数零；除此之外，增加了4个用于保存``请求''类型数据的请求寄存器（S0-S3），可以通过请求缓存操作指令（rbget和rbput，参见3.3节），将请求输入队列中的请求读取到该寄存器、或将该寄存器中的请求加入到请求输出队列中；请求寄存器不能直接参与算术逻辑计算，需要先将其部分数据读取到通用寄存器后才能执行计算；请求寄存器之间可以直接进行数据交换。处理器执行的固件代码与数据保存在scratchpad memory中，需要用户自行管理。控制平面被映射为数据平面处理器的外设，提供处理器的固件代码ROM以及处理器的对外接口。
+数据平面处理器中程序员可见的存储结构包含寄存器、请求缓存、scratchpad memory、I/O地址空间四部分。
+与传统的RISC架构相同，数据平面处理器包含32个通用寄存器（\textit{r}0-\textit{r}31），
+用于进行算数逻辑运算，其中\textit{r}0是常数0；
+除此之外，增加了4个用于保存``请求''类型数据的请求寄存器（\textit{s}0-\textit{s}3），
+可以通过请求缓存操作指令（rbget和rbput，参见第\ref{chap:hwresman:dp:isa}节），
+将请求输入队列中的请求读取到该寄存器、或将该寄存器中的请求加入到请求输出队列中；
+请求寄存器不能直接参与算术逻辑计算，需要先将其部分数据读取到通用寄存器后才能执行计算；
+请求寄存器之间可以直接进行数据交换。
+处理器执行的固件代码与数据保存在scratchpad memory中，需要用户自行管理。
+控制平面被映射为数据平面处理器的外设，提供处理器的固件代码ROM以及处理器的对外接口。
 
 \subsubsection{指令集}
-数据平面处理器使用RISC标准的算数逻辑、控制流和访存指令，并在其基础上额外增加了请求缓存操作指令。
+\label{chap:hwresman:dp:isa}
 
-请求缓存分为两部分，一个输入缓存一个输出缓存。其中输入缓存既可作为FIFO操作，也可基于DSid进行内容寻址；输出缓存只能作为FIFO操作。用于请求缓存操作的指令如表\ref{tab:pard-dp-isa}所示，指令rbput可以将指定请求寄存器中的请求添加到输出缓存队列末尾；指令rbget有两种使用方式，一种是将输入缓存作为FIFO，取出队列头的请求到请求寄存器，另一种是通过应用标签（DSid）对请求进行筛选，取出第一个满足应用标签的请求到请求寄存器。指令rbcp用于在请求寄存器之间传送数据。指令mfrb用于将请求寄存器中的部分数据传送到通用寄存器；指令mtrb与之相反，用于将通用寄存器的数据传送到请求寄存器指定的位置。
+数据平面处理器使用RISC标准的算数逻辑、控制流和访存指令，
+并在其基础上额外增加了请求缓存操作指令。
+
+请求缓存分为两部分，一个输入缓存一个输出缓存。
+其中输入缓存既可作为FIFO操作，也可基于DS-id进行内容寻址；
+输出缓存只能作为FIFO操作。
+用于请求缓存操作的指令如表\ref{tab:pard-dp-isa}所示，
+指令rbput可以将指定请求寄存器中的请求添加到输出缓存队列末尾；
+指令rbget有两种使用方式，一种是将输入缓存作为FIFO，取出队列头的请求到请求寄存器，
+另一种是通过DS-id对请求进行筛选，取出第一个满足应用标签的请求到请求寄存器。
+指令rbcp用于在请求寄存器之间传送数据。
+指令mfrb用于将请求寄存器中的部分数据传送到通用寄存器；
+指令mtrb与之相反，用于将通用寄存器的数据传送到请求寄存器指定的位置。
 
 % 数据平面处理器扩展指令
 \begin{table}[htb]
@@ -722,31 +766,49 @@ stack.
       {\heiti 指令} & {\heiti 用途} \\
       \midrule[1pt]
 
-      \multirow{2}{*}{\textbf{rbput}} & \multicolumn{2}{l}{将请求寄存器中的请求增加到请输出请求缓存FIFO队尾。示例：}          \\
-                                      & \textit{rbput rb0, s0      } & \textit{\#将s0加入到rb0队尾                          } \\
+      \multirow{2}{*}{\textbf{rbput}} & \multicolumn{2}{l}{将请求寄存器中的请求增加到请输出请求缓存FIFO队尾。示例：}                               \\
+                                      & rbput \textit{rb}0, \textit{s}0 & \#将\textit{s}0加入到\textit{rb}0队尾                                    \\
       \hline
-      \multirow{3}{*}{\textbf{rbget}} & \multicolumn{2}{l}{从输入请求缓存读取一个请求到指定的请求寄存器。示例：}              \\
-                                      & \textit{rbget s0, rb0      } & \textit{\#从rb0获得第一个请求到s0寄存器              } \\
-                                      & \textit{rbget s0, rb0, DSid} & \textit{\#从rb0获得第一个DSid为给定值的请求到s0寄存器} \\
+      \multirow{3}{*}{\textbf{rbget}} & \multicolumn{2}{l}{从输入请求缓存读取一个请求到指定的请求寄存器。示例：}                                   \\
+                                      & rbget \textit{s}0, \textit{rb}0                & \#从\textit{rb}0获得第1个请求到\textit{s}0寄存器          \\
+                                      & rbget \textit{s}0, \textit{rb}0, \textit{DSid} & \#从\textit{rb}0获得第1个\textit{DSid}为给定值的请求到\textit{s}0寄存器 \\
       \hline
-      \multirow{2}{*}{\textbf{rbcp}}  & \multicolumn{2}{l}{请求缓存寄存器之间传递数据}                                        \\
-                                      & \textit{rbcp s0, s1        } & \textit{\#将s1的值传递给s0                    }        \\
+      \multirow{2}{*}{\textbf{rbcp}}  & \multicolumn{2}{l}{请求缓存寄存器之间传递数据}                                                             \\
+                                      & rbcp \textit{s}0, \textit{s}1                  & \#将\textit{s}1的值传递给\textit{s}0                      \\
       \hline
-      \multirow{3}{*}{\textbf{mfrb,mtrb}}   & \multicolumn{2}{l}{请求缓存寄存器与通用寄存器之间传递值。示例：}                \\
-                                      & \textit{mfrb r4, s0, 0     } & \textit{\#将s0第一个32位数据送到r4寄存器      }        \\
-                                      & \textit{mtrb s1, r5, 1     } & \textit{\#将r5寄存的数据送到s1寄存器第二个32位}        \\
+      \multirow{3}{*}{\textbf{mfrb,mtrb}}   & \multicolumn{2}{l}{请求缓存寄存器与通用寄存器之间传递值。示例：}                                     \\
+                                      & mfrb \textit{r}4, \textit{s}0, 0               & \#将\textit{s}0第1个32位数据送到\textit{r}4寄存器         \\
+                                      & mtrb \textit{s}1, \textit{r}5, 1               & \#将\textit{r}5寄存的数据送到\textit{s}1寄存器第2个32位   \\
       \bottomrule[1.5pt]
     \end{tabular*}\\[2pt]
   \end{minipage}
 \end{table}
 
 \subsection{固件代码示例}
-本节将以三段不同功能的固件代码为例，介绍数据平面处理器的编程方法。
+本节将以3段不同功能的固件代码为例，介绍数据平面处理器的编程方法。
+
+\textbf{缓存替换策略}\quad
+本示例实现缓存替换策略功能，使用可编程处理器替换Cache中原有的LRU模块，
+使用软件实现基于二叉树的伪LRU替换策略。
+如图\ref{fig:pard-dp-ex-cache}所示，处理器固件代码工作流程如下：
+1）处理器收到Cache前端的请求后，以及Hit/Miss信息，如果缓存命中则无需任何额外操作；
+2）对于缓存缺失的请求，首先从地址中解析出tag与set信息，
+并将解析后的set地址发送到Tag Array，等待其返回该set的信息；
+3）根据TagArrary返回的set信息，以及内部的数据结构生成替换目标；
+4）将替换目标送出处理器。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\textwidth]{hwres/pard-dp-ex-cache}
+  \caption{缓存替换策略示例}
+  \label{fig:pard-dp-ex-cache}
+\end{figure}
+
 
 \textbf{段式地址映射}\quad
 本示例用于实现PARD的内存控制器控制平面所提供的地址映射功能，
 该功能只需要对访存请求的地址进行修改，而请求的数据无需修改，
-我们将地址与数据分开由两个处理器进行处理，
+因此将地址与数据分开由两个处理器进行处理，
 如图\ref{fig:pard-dp-ex-mapping}右所示。
 对于数据处理器，其固件代码只使用rbget/rbput指令对请求进行转发。
 地址处理器首先需要使用rbget指令获取当前请求到请求寄存器，
@@ -762,7 +824,14 @@ stack.
   \label{fig:pard-dp-ex-mapping}
 \end{figure}
  
-\textbf{数据加密}\ 本示例实现访存数据加密功能，由于数据加密操作通常需要耗费很长的时间，而且我们的数据平面处理器提供的指令集并不足以完成该操作。因此我们在外部实现了硬件AES加密模块，并通过请求接口将其连接到数据平面处理器上，该结构如图\ref{fig:pard-dp-ex-aes}所示。基于该结构，数据处理器只需要将数据发送到AES模块并等待其完成加密，将加密后的数据送出处理器即可。数据解密与加密过程类似，只需将数据发送到连接有解密模块的请求接口即可。
+\textbf{数据加密}\quad
+本示例实现访存数据加密功能，由于数据加密操作通常需要耗费很长的时间，
+而且数据平面处理器提供的指令集并不足以完成该操作。
+因此在处理器外部实现了硬件AES加密模块，并通过请求接口将其连接到数据平面处理器上，
+该结构如图\ref{fig:pard-dp-ex-aes}所示。
+基于该结构，数据处理器只需要将数据发送到AES模块并等待其完成加密，
+将加密后的数据送出处理器即可。
+数据解密与加密过程类似，只需将数据发送到连接有解密模块的请求接口即可。
 
 \begin{figure}[H]
   \centering
@@ -771,15 +840,6 @@ stack.
   \label{fig:pard-dp-ex-aes}
 \end{figure}
  
-\textbf{缓存替换策略}\ 本示例实现缓存替换策略功能，使用可编程处理器替换Cache中原有的LRU模块，使用软件实现基于二叉树的伪LRU替换策略。如图\ref{pard-dp-ex-cache}所示，处理器固件代码工作流程如下：（1）处理器收到Cache前端的请求后，以及Hit/Miss信息，如果缓存命中则无需任何额外操作；（2）对于缓存缺失的请求，首先从地址中解析出tag与set信息，并将解析后的set地址发送到Tag Array，等待其返回该set的信息；（3）根据TagArrary返回的set信息，以及内部的数据结构生成替换目标；（4）将替换目标送出处理器。
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.7\textwidth]{hwres/pard-dp-ex-cache}
-  \caption{缓存替换策略示例}
-  \label{fig:pard-dp-ex-cache}
-\end{figure}
-
 
 \subsection{可编程支持}
 
@@ -793,7 +853,7 @@ stack.
 但需要对数据平面处理器与硬件的接口处进行额外的处理，
 如图\ref{fig:pard-dp-fw-upgrade}所示。
 
-\begin{figure}[H]
+\begin{figure}[tb]
   \centering
   \includegraphics[width=0.6\textwidth]{hwres/pard-dp-fw-upgrade}
   \caption{数据平面处理器兼容性固件更新状态图}
@@ -809,4 +869,14 @@ stack.
 
 
 \section{小结}
+
+本章介绍了PARD体系结构中硬件资源共享管理方法与架构，
+包括硬件资源的``数据平面''与``控制平面''抽象，及其具体的实现。
+控制平面通过控制表实现，为用户提供了资源管理接口，
+同时提出了``\emph{trigger$\Rightarrow$action}''编程方法，
+基于模拟器的实验结果表明，该方法与PARD提供的资源管理机制结合，
+能够实现数据中心服务器资源利用率与应用服务质量的平衡。
+针对数据平面可编程需求，本章提出一种数据平面处理器设计，
+并将其应用到处理器末级缓存与内存控制器数据平面中，
+通过软件编程的方式实现硬件资源管理的扩展。
 

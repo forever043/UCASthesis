@@ -10,11 +10,91 @@
 实现高效资源管理需要软硬件协同设计。
 PARD体系结构已经实现将硬件资源信息暴露给上层软件，
 并提供可编程接口给软件访问，本章主要讨论在PARD这样的硬件架构平台上，
-如何实现设计软件栈以实现高效的资源管理。
-则一般都会影响甚至重构整个软件栈：最底层的控制平面驱动层，负责直接访问控制平面，这一层可以部署在操作系统、Hypervisor或者一个轻量级的操作系统内核；在驱动层上面为监控管理层，主要负责集中存储收集到的各个控制平面的统计数据，并将多个控制平面关联分析，进行资源分配管理的决策；更上层是用户编程接口层，主要负责提供对控制平面统一的抽象编程接口以及对统一、决策功能的抽象编程接口；最上层则是数据中心管理软件层，主要负责收集几个计算机节点的资源信息，进行全局作业调度与资源管理，以实现在保障关键应用服务质量的前提下达到全局资源利用率最优化。
-因此，从单个计算机节点角度出发，在硬件支持资源管理的基础上，软件栈的设计与实现需要研究上述驱动层、监控管理层与用户接口层的设计与实现，降低软件栈的设计复杂度与运行开销，研究针对不同资源的优化管理策略。同时研究在这种新体系结构下对软件虚拟化技术的影响。
+如何设计软件栈以实现高效的资源管理。
 
-PARD体系结构在硬件上有两方面的改变：一是一部分资源管理功能放到了硬件控制器上；二是将更多的硬件资源信息暴露给软件。计算机底层硬件功能的改变会对上层软件栈产生影响。
+A datacenter management system brings the benefits of high availability, high
+reliability, high utilization and fast deployment and so on.
+An essential building block of such management systems is resource isolation and
+encapsulation, which now primarily adopts software based approaches such as
+virtualization and container. However, software approaches are insufficient
+for performance isolation due to the interference on low-level hardware resources
+(e.g., shared cache, memory bandwidth). Thus, to address this issue,
+recently hardware isolation has been proposed and proven to be promising.
+
+Since the hardware and the system software always evolve mutually, in this paper
+we discuss how hardware isolation influences system software, including
+hypervisor, operating system kernel and cluster management system.
+Specifically, we will outline how to modify OpenStack, a popular
+cloud computing platform, to be aware of servers with hardware isolation
+and further take the advantages of hardware isolation.
+
+本章内容安排如下：首先介绍数据中心软件栈的两个重要组成部分IPMI与数据中心操作系统；
+然后介绍基于PARD体系结构的数据中心架构，之后具体介绍单节点PARD软件栈构成；
+并以mesos为例，讨论如何将PARD集成到数据中心管理架构中。
+
+%则一般都会影响甚至重构整个软件栈：最底层的控制平面驱动层，负责直接访问控制平面，这一层可以部署在操作系统、Hypervisor或者一个轻量级的操作系统内核；在驱动层上面为监控管理层，主要负责集中存储收集到的各个控制平面的统计数据，并将多个控制平面关联分析，进行资源分配管理的决策；更上层是用户编程接口层，主要负责提供对控制平面统一的抽象编程接口以及对统一、决策功能的抽象编程接口；最上层则是数据中心管理软件层，主要负责收集几个计算机节点的资源信息，进行全局作业调度与资源管理，以实现在保障关键应用服务质量的前提下达到全局资源利用率最优化。
+%因此，从单个计算机节点角度出发，在硬件支持资源管理的基础上，软件栈的设计与实现需要研究上述驱动层、监控管理层与用户接口层的设计与实现，降低软件栈的设计复杂度与运行开销，研究针对不同资源的优化管理策略。同时研究在这种新体系结构下对软件虚拟化技术的影响。
+%
+%PARD体系结构在硬件上有两方面的改变：一是一部分资源管理功能放到了硬件控制器上；二是将更多的硬件资源信息暴露给软件。计算机底层硬件功能的改变会对上层软件栈产生影响。
+
+\section{问题分析}
+
+Managing large-scale datacenters has been a fundamental demand
+for large internet companies. Over the past decade, these companies
+have built several datacenter management systems such as Google's
+Google's Omega \cite{Schwarzkopf_omega_2013}, Borg \cite{borg:2015},
+Kubernetes \cite{Kubernetes}, Microsoft's Apollo \cite{Apollo},
+Cosmos \cite{Cosmos}, Facebook's Aurora \cite{Aurora},
+Baidu's Matrix \cite{} and Alibaba's Fuxi \cite{Fuxi}.
+Meanwhile, some other systems like
+OpenStack \cite{OpenStack}, Apache Mesos\cite{Hindman:2011:Mesos},
+YARN \cite{YARN} have been widely adopted in industry.
+
+Apart from offering the benefits of high availability,
+high reliability and fast service deployment,
+one major goal of these management systems is to improve
+datacenter utilization by scheduling millions of workloads
+to co-run across tens of thousands of commodity servers.
+Usually, a single physical server hosts more than one workloads
+that have different requirements on resources and
+quality-of-service (QoS).
+
+However, such workload colocation causes contention over shared hardware and software
+resources such as last level cache (LLC), network bandwidth and kernel buffers, thereby
+resulting in unpredictable performance variation that degrades QoS of
+latency-critical workloads.
+In order to guarantee these workloads' QoS in shared environments,
+current management systems primarily adopt software based resource
+isolation mechanisms, e.g., virtual machine, container and
+control group (cgroup) \cite{cgroup}, due to the lack of hardware supported isolation.
+
+Software based isolation is effective to a certain extend for resource allocation
+and protection but is insufficient for performance isolation, especially due to
+contention over hardware resources. For example, with more than 10 years of
+experience in operating Borg in Google's production environments, Borg developers
+found that after using a Linux cgroup-based resource container, low-level
+hardware interference still happens \cite{Google:2015:Borg}.
+Thus, in Dick Sites' recent talk \cite{}, he argued that better hardware
+support isolation is needed.
+
+To address this issue, we recently proposed a new computer architecture PARD
+(Programmable Architecture for Resourcing-on-Demand) \cite{Ma:2015:PARD}, which
+supports hardware isolation. Specifically, a PARD server is able to provide fully hardware supported
+virtualization without software hypervisors. Thus the server is
+physically partitioned into multiple submachines that can run unmodified OS.
+The PARD server also supports differentiated service (DiffServ) for these submachines,
+which means that each submachine is assigned a priority for performance isolation
+in light of its QoS requirement. Preliminary results on
+a GEM5 \cite{binkert_gem5_2011} based full-system
+cycle accurate simulator and an FPGA-based ongoing PARD server prototype
+further show that hardware isolation is feasible.
+
+Historically, the hardware and the system software always evolve mutually, such as
+interrupt and time-sharing, memory management unit (MMU) and virtual memory.
+Since recent efforts suggests that the trend of hardware isolation is promising,
+consequent questions arise: \textbf{what is the impact of hardware isolation on system
+software? What's next for system software?}
+
 
 \section{背景}
 
@@ -28,6 +108,20 @@ PARD软件栈负责管理节点内的硬件资源，同时需要与数据中心�
 
 mesos/openstack作为数据中心OS，其架构，PARD要接入到这些架构中。
 
+\subsection{数据中心管理系统}
+
+\begin{figure}[tbh]
+  \centering
+  \includegraphics[width=0.7\textwidth]{swstk/mesos-arch}
+  \caption{Mesos系统架构}
+  \label{fig:mesos-arch}
+\end{figure}
+
+The above figure shows the main components of Mesos. Mesos consists of a master daemon that manages slave daemons running on each cluster node, and Mesos frameworks that run tasks on these slaves.
+
+The master enables fine-grained sharing of resources (CPU, RAM, …) across frameworks by making them resource offers. Each resource offer contains a list of <slave ID, resource1: amount1, resource2, amount2, …>. The master decides how many resources to offer to each framework according to a given organizational policy, such as fair sharing or strict priority. To support a diverse set of policies, the master employs a modular architecture that makes it easy to add new allocation modules via a plugin mechanism.
+
+A framework running on top of Mesos consists of two components: a scheduler that registers with the master to be offered resources, and an executor process that is launched on slave nodes to run the framework’s tasks (see the App/Framework development guide for more details about framework schedulers and executors). While the master determines how many resources are offered to each framework, the frameworks' schedulers select which of the offered resources to use. When a frameworks accepts offered resources, it passes to Mesos a description of the tasks it wants to run on them. In turn, Mesos launches the tasks on the corresponding slaves.
 
 \subsection{带外管理与IPMI}
 
@@ -62,21 +156,6 @@ IPMB is an I²C based serial bus, which makes connection with various boards ins
 \textbf{Intelligent Chassis Management Bus (ICMB)}\quad
 ICMB provides a standardized interface for communication and control between chasses.
 
-
-\subsection{数据中心管理系统}
-
-\begin{figure}[tbh]
-  \centering
-  \includegraphics[width=0.7\textwidth]{swstk/mesos-arch}
-  \caption{Mesos系统架构}
-  \label{fig:mesos-arch}
-\end{figure}
-
-The above figure shows the main components of Mesos. Mesos consists of a master daemon that manages slave daemons running on each cluster node, and Mesos frameworks that run tasks on these slaves.
-
-The master enables fine-grained sharing of resources (CPU, RAM, …) across frameworks by making them resource offers. Each resource offer contains a list of <slave ID, resource1: amount1, resource2, amount2, …>. The master decides how many resources to offer to each framework according to a given organizational policy, such as fair sharing or strict priority. To support a diverse set of policies, the master employs a modular architecture that makes it easy to add new allocation modules via a plugin mechanism.
-
-A framework running on top of Mesos consists of two components: a scheduler that registers with the master to be offered resources, and an executor process that is launched on slave nodes to run the framework’s tasks (see the App/Framework development guide for more details about framework schedulers and executors). While the master determines how many resources are offered to each framework, the frameworks' schedulers select which of the offered resources to use. When a frameworks accepts offered resources, it passes to Mesos a description of the tasks it wants to run on them. In turn, Mesos launches the tasks on the corresponding slaves.
 
 \section{软件栈平台与架构}
 
