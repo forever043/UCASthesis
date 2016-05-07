@@ -7,106 +7,171 @@
 \chapter{资源管理软件栈研究}
 \label{chap:prm}
 
-实现高效资源管理需要软硬件协同设计。
-PARD体系结构已经实现将硬件资源信息暴露给上层软件，
-并提供可编程接口给软件访问，本章主要讨论在PARD这样的硬件架构平台上，
-如何设计软件栈以实现高效的资源管理。
+%% 数据中心管理软件要做这些事情
+%A datacenter management system brings the benefits of high availability, high
+%reliability, high utilization and fast deployment and so on.
+%% 它的基本构成是隔离与封装环境，当前使用虚拟化与容器实现
+%An essential building block of such management systems is resource isolation and
+%encapsulation, which now primarily adopts software based approaches such as
+%virtualization and container.
+%% 但软件方法没有足够的性能隔离
+%However, software approaches are insufficient
+%for performance isolation due to the interference on low-level hardware resources
+%(e.g., shared cache, memory bandwidth).
+%% 因此需要硬件支持
+%Thus, to address this issue,
+%recently hardware isolation has been proposed and proven to be promising.
 
-A datacenter management system brings the benefits of high availability, high
-reliability, high utilization and fast deployment and so on.
-An essential building block of such management systems is resource isolation and
-encapsulation, which now primarily adopts software based approaches such as
-virtualization and container. However, software approaches are insufficient
-for performance isolation due to the interference on low-level hardware resources
-(e.g., shared cache, memory bandwidth). Thus, to address this issue,
-recently hardware isolation has been proposed and proven to be promising.
+数据中心对其管理系统提出了高可用、高可靠、高利用率以及快速部署等需求，
+资源隔离与封装是实现以上需求的必要条件。
+当前数据中心管理系统大都基于虚拟化、容器等软件技术实现资源隔离与封装。
+然而受到底层硬件层次（如处理器末级缓存、内存控制器等）资源竞争与干扰的影响，
+这些软件方法无法实现性能隔离，需要在硬件上提供资源隔离机制。
 
-Since the hardware and the system software always evolve mutually, in this paper
-we discuss how hardware isolation influences system software, including
-hypervisor, operating system kernel and cluster management system.
-Specifically, we will outline how to modify OpenStack, a popular
-cloud computing platform, to be aware of servers with hardware isolation
-and further take the advantages of hardware isolation.
+%% 软硬件是交替促进发展的，本章讨论硬件隔离机制如何影响软件的改变，
+%% 具体来说本文所提出的PARD体系结构对上层管理软件提出的需求，
+%% 包括Hypervisor、操作系统及上层管理软件。
+%Since the hardware and the system software always evolve mutually, in this paper
+%we discuss how hardware isolation influences system software, including
+%hypervisor, operating system kernel and cluster management system.
+%Specifically, we will outline how to modify OpenStack, a popular
+%cloud computing platform, to be aware of servers with hardware isolation
+%and further take the advantages of hardware isolation.
 
-本章内容安排如下：首先介绍数据中心软件栈的两个重要组成部分IPMI与数据中心操作系统；
+软硬件是相辅相成的，本章主要讨论硬件提供更多资源管理机制后，
+对应的系统软件栈（e.g. hypervisor，操作系统，数据中心管理系统）需要如何适应这种变化。
+具体来说，即如何在PARD体系结构下设计系统软件栈，以实现高效的数据中心管理。
+本章内容安排如下：
+首先以mesos为例，介绍数据中心管理系统
 然后介绍基于PARD体系结构的数据中心架构，之后具体介绍单节点PARD软件栈构成；
 并以mesos为例，讨论如何将PARD集成到数据中心管理架构中。
+
+%实现高效资源管理需要软硬件协同设计。
+%PARD体系结构已经实现将硬件资源信息暴露给上层软件，
+%并提供可编程接口给软件访问，本章主要讨论在PARD这样的硬件架构平台上，
+%如何设计软件栈以实现高效的资源管理。
 
 %则一般都会影响甚至重构整个软件栈：最底层的控制平面驱动层，负责直接访问控制平面，这一层可以部署在操作系统、Hypervisor或者一个轻量级的操作系统内核；在驱动层上面为监控管理层，主要负责集中存储收集到的各个控制平面的统计数据，并将多个控制平面关联分析，进行资源分配管理的决策；更上层是用户编程接口层，主要负责提供对控制平面统一的抽象编程接口以及对统一、决策功能的抽象编程接口；最上层则是数据中心管理软件层，主要负责收集几个计算机节点的资源信息，进行全局作业调度与资源管理，以实现在保障关键应用服务质量的前提下达到全局资源利用率最优化。
 %因此，从单个计算机节点角度出发，在硬件支持资源管理的基础上，软件栈的设计与实现需要研究上述驱动层、监控管理层与用户接口层的设计与实现，降低软件栈的设计复杂度与运行开销，研究针对不同资源的优化管理策略。同时研究在这种新体系结构下对软件虚拟化技术的影响。
 %
 %PARD体系结构在硬件上有两方面的改变：一是一部分资源管理功能放到了硬件控制器上；二是将更多的硬件资源信息暴露给软件。计算机底层硬件功能的改变会对上层软件栈产生影响。
 
-\section{问题分析}
-
-Managing large-scale datacenters has been a fundamental demand
-for large internet companies. Over the past decade, these companies
-have built several datacenter management systems such as Google's
-Google's Omega \cite{Schwarzkopf_omega_2013}, Borg \cite{borg:2015},
-Kubernetes \cite{Kubernetes}, Microsoft's Apollo \cite{Apollo},
-Cosmos \cite{Cosmos}, Facebook's Aurora \cite{Aurora},
-Baidu's Matrix \cite{} and Alibaba's Fuxi \cite{Fuxi}.
-Meanwhile, some other systems like
-OpenStack \cite{OpenStack}, Apache Mesos\cite{Hindman:2011:Mesos},
-YARN \cite{YARN} have been widely adopted in industry.
-
-Apart from offering the benefits of high availability,
-high reliability and fast service deployment,
-one major goal of these management systems is to improve
-datacenter utilization by scheduling millions of workloads
-to co-run across tens of thousands of commodity servers.
-Usually, a single physical server hosts more than one workloads
-that have different requirements on resources and
-quality-of-service (QoS).
-
-However, such workload colocation causes contention over shared hardware and software
-resources such as last level cache (LLC), network bandwidth and kernel buffers, thereby
-resulting in unpredictable performance variation that degrades QoS of
-latency-critical workloads.
-In order to guarantee these workloads' QoS in shared environments,
-current management systems primarily adopt software based resource
-isolation mechanisms, e.g., virtual machine, container and
-control group (cgroup) \cite{cgroup}, due to the lack of hardware supported isolation.
-
-Software based isolation is effective to a certain extend for resource allocation
-and protection but is insufficient for performance isolation, especially due to
-contention over hardware resources. For example, with more than 10 years of
-experience in operating Borg in Google's production environments, Borg developers
-found that after using a Linux cgroup-based resource container, low-level
-hardware interference still happens \cite{Google:2015:Borg}.
-Thus, in Dick Sites' recent talk \cite{}, he argued that better hardware
-support isolation is needed.
-
-To address this issue, we recently proposed a new computer architecture PARD
-(Programmable Architecture for Resourcing-on-Demand) \cite{Ma:2015:PARD}, which
-supports hardware isolation. Specifically, a PARD server is able to provide fully hardware supported
-virtualization without software hypervisors. Thus the server is
-physically partitioned into multiple submachines that can run unmodified OS.
-The PARD server also supports differentiated service (DiffServ) for these submachines,
-which means that each submachine is assigned a priority for performance isolation
-in light of its QoS requirement. Preliminary results on
-a GEM5 \cite{binkert_gem5_2011} based full-system
-cycle accurate simulator and an FPGA-based ongoing PARD server prototype
-further show that hardware isolation is feasible.
-
-Historically, the hardware and the system software always evolve mutually, such as
-interrupt and time-sharing, memory management unit (MMU) and virtual memory.
-Since recent efforts suggests that the trend of hardware isolation is promising,
-consequent questions arise: \textbf{what is the impact of hardware isolation on system
-software? What's next for system software?}
-
-
 \section{背景}
 
-PARD软件栈负责管理节点内的硬件资源，同时需要与数据中心管理软件交互，
-实现数据中心范围内的全局资源管理。
-为了实现XXX，PARD的软件栈运行在独立的硬件部件上，与IPMI类似，
-本节首先介绍IPMI\cite{ipmi}与带外管理相同的背景，
-然后介绍Mesos\cite{Hindman:2011:Mesos}的架构。
+管理大规模数据中心是大型互联网公司运维工作的基本任务，在过去的十几年中，
+这些公司开发了不同的管理系统来完成这一任务，
+如：Google的Omega\cite{Schwarzkopf_omega_2013}、Borg\cite{borg:2015}、
+Kubernetes\cite{Kubernetes}，Microsoft的Apollo \cite{Apollo}、Cosmos \cite{Cosmos}，
+Facebook的Aurora\cite{Aurora}，国内百度的Matrix以及阿里的伏羲\cite{Fuxi}。
+其他一些开源系统如OpenStack\cite{OpenStack}、Apache Mesos\cite{Hindman:2011:Mesos}、
+YARN\cite{YARN}被广泛的应用在工业界。
 
-介绍IPMI/BMC与带外管理，PARD的软件栈在此基础上进行扩充。
+除提供高可用、高可靠、快速部署等基本管理功能外，
+这些数据中心管理系统的另一个重要目标是提高数据中心的资源利用率：
+通过应用调度将数据中心百万量级的应用混合运行在十万量级到服务器上，
+使用资源共享的方式充分利用服务器资源。
+通常情况下，1台物理服务器上通常会运行多个具有不同资源与服务质量需求的应用。
 
-mesos/openstack作为数据中心OS，其架构，PARD要接入到这些架构中。
+%However, such workload colocation causes contention over shared hardware and software
+%resources such as last level cache (LLC), network bandwidth and kernel buffers, thereby
+%resulting in unpredictable performance variation that degrades QoS of
+%latency-critical workloads.
+%In order to guarantee these workloads' QoS in shared environments,
+%current management systems primarily adopt software based resource
+%isolation mechanisms, e.g., virtual machine, container and
+%control group (cgroup) \cite{cgroup}, due to the lack of hardware supported isolation.
+%
+%Software based isolation is effective to a certain extend for resource allocation
+%and protection but is insufficient for performance isolation, especially due to
+%contention over hardware resources.
+%
+%For example, with more than 10 years of
+%experience in operating Borg in Google's production environments, Borg developers
+%found that after using a Linux cgroup-based resource container, low-level
+%hardware interference still happens \cite{borg:2015}.
+%Thus, in Dick Sites' recent talk \cite{}, he argued that better hardware
+%support isolation is needed.
+正如本文前几章的分析，多个应用会在共享软硬件资源上产生竞争，并造成不可预测的性能下降，
+特别是延迟敏感型应用，这种性能下降更为明显。
+为了保障在共享环境下关键应用的服务质量，
+当前的数据中心管理系统通常会使用软件方法来实现应用之间的隔离，
+如虚拟化、容器和cgroup。
+虽然软件隔离方案能够很好的实现资源分配与保护，
+但它不足以提供有效的性能隔离，特别是无实现隔离由于硬件层次上资源竞争所造成的性能干扰。
+以Google数据中心为例，即使经过10多年生产环境的运行与优化，
+基于cgroup实现软件隔离的Borg系统仍然无法解决硬件层次所带来的干扰\cite{borg:2015}。
+因此，正如Dick Sites在其报告\cite{Dick:2015}中所提出，
+硬件支持隔离对于数据中心服务器是必不可少的。
+
+本文所提出的资源管理可编程体系结构（PARD）正是这样一种支持硬件隔离的服务器体系结构，
+它能够实现全硬件支持虚拟化（第\ref{chap:labeladdrspace}章），
+无需软件Hypervisor的支持，即可将一台物理服务器划分为多个相互隔离的子机器（逻辑域），
+在逻辑域内可以像虚拟机一样运行未修改的操作系统。
+同时PARD还提供了以逻辑域为粒度的区分化服务，
+通过可编程的硬件资源管理实现逻辑域之间的资源划分与性能隔离
+（第\ref{chap:hwresman}章）。
+基于模拟器的实验结果也表明，PARD能够在硬件上实现良好的资源与性能隔离。
+
+%To address this issue, we recently proposed a new computer architecture PARD
+%(Programmable Architecture for Resourcing-on-Demand) \cite{Ma:2015:PARD}, which
+%supports hardware isolation. Specifically, a PARD server is able to provide fully hardware supported
+%virtualization without software hypervisors. Thus the server is
+%physically partitioned into multiple submachines that can run unmodified OS.
+%The PARD server also supports differentiated service (DiffServ) for these submachines,
+%which means that each submachine is assigned a priority for performance isolation
+%in light of its QoS requirement. Preliminary results on
+%a GEM5 \cite{binkert_gem5_2011} based full-system
+%cycle accurate simulator and an FPGA-based ongoing PARD server prototype
+%further show that hardware isolation is feasible.
+
+%Historically, the hardware and the system software always evolve mutually, such as
+%interrupt and time-sharing, memory management unit (MMU) and virtual memory.
+%Since recent efforts suggests that the trend of hardware isolation is promising,
+%consequent questions arise: \textbf{what is the impact of hardware isolation on system
+%software? What's next for system software?}
+
+从计算机发展的历史来看，硬件与系统软件总是总是在相互促进发展的，
+如硬件中断机制的出现使得系统软件发展出分时系统、MMU硬件的出现促成了虚拟内存机制。
+本文所提出的PARD体系结构，以及其他一些硬件隔离技术的出现\cite{intel-rdt}，
+势必也会对未来系统软件的设计产生影响。
+
+本章主要讨论如何将PARD服务器集成到现有数据中心管理系统，
+并利用其提供的特性（表\ref{tab:pard-features}）实现数据中心资源管理，
+其架构如图\ref{fig:pard-dc-overview}所示。
+本节首先对数据中心管理系统进行简要介绍，
+然后对比已有节点内资源管理所需的软件栈支持，并
+带外管理相关内容。 介绍IPMI/BMC与带外管理，PARD的软件栈在此基础上进行扩充。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.6\textwidth]{swstk/pard-dc-overview}
+  \caption{PARD服务器与数据中心管理系统}
+  \label{fig:pard-dc-overview}
+\end{figure}
+
+\begin{table}[tb]
+\begin{center}
+\begin{tabular}{c|c|c}
+  \toprule[1.5pt]
+  & \textbf{Conventional Server} & \textbf{PARD Server}\\
+  \midrule[1pt]
+  \emph{Virtualization} & SW Supported & HW Supported\\
+  \hline
+  \emph{Perf. Isolation} & Unsupported & HW Surpported\\
+  \hline
+  \emph{Monitoring} & High overhead & Realtime\\
+  \hline
+  \emph{Perf. Adaption} & Coarse-grained  & Fine-grained\\
+  \hline
+%  \emph{Management} & Intergerited & Deccouple\\
+%  \hline
+  \bottomrule[1.5pt]
+\end{tabular}
+\caption{PARD服务器与传统服务器特性对比}
+\label{tab:pard-features}
+\end{center}
+\end{table}
+
 
 \subsection{数据中心管理系统}
 
@@ -241,7 +306,59 @@ access these CPA files, as shown in Example 2.
 
 \section{与数据中心结合}
 
+% 云计算三种模型
+云计算有三种模式：SaaS、PaaS、IaaS，如图\ref{fig:cloud-usage-model}所示，
+其区别在于用户需要管理的层次
+其中IaaS用户需要管理到OS层，以OpenStack为例；
+PaaS用户只需要管理应用与数据，其他部分由数据中心管理，以Docker为例；
+SaaS是最底层，用户直接使用不同软件组合，以XX为例。
+本章主要考查IaaS与PaaS两种模式。
 
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.8\textwidth]{swstk/cloud-usage-model}
+  \caption{云计算3种使用模式对比：IaaS、PaaS与SaaS}
+  \label{fig:cloud-usage-model}
+\end{figure}
+
+PARD提供的逻辑域抽象，能够很容易的实现IaaS模式，
+因为逻辑域抽象与虚拟机抽象几乎完全类似，之前几章的工作都是基于IaaS模式对PARD进行讨论，
+但目前数据中心PaaS由于资源浪费较少，被越来越广泛的使用，
+本节主要讨论如何在PARD平台上实现PaaS模式，同时将其集成到数据中心管理系统中，
+这里将主要针对mesos系统进行讨论。
+
+\subsection{使用PARD体系结构实现PaaS}
+% PARD如何实现PaaS
+PARD实现PaaS的方式是通过类似于unikernel/LibOS的方式，
+用户提供应用，PARD软件栈提供OS kernel，并将两者组合运行在逻辑域中。
+具体流程如下，如图\ref{fig:pard-ldom-paas}：
+
+1）XXX
+
+2）XXX
+
+3）XXX
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{swstk/pard-ldom-paas}
+  \caption{PARD体系结构实现PaaS模式}
+  \label{fig:pard-ldom-paas}
+\end{figure}
+
+
+\subsection{mesos系统集成}
+% mesos如何管理资源
+
+% PARD如何支持MesosExecutor
+
+
+\subsection{PARD体系结构对数据中心管理系统的影响}
+% 对mesos资源模型的影响
+%  -- PARD为mesos增加了额外可控制的资源
+%  -- mesos如何管理这些额外的资源
+%    -- 增加资源抽象属性：CPU/Mem => Cache/BW/QoS-Level/etc.
+%    -- 增加调度考查
 
 \section{小结}
 
