@@ -97,7 +97,7 @@ YARN\cite{YARN}被广泛的应用在工业界。
 当前的数据中心管理系统通常会使用软件方法来实现应用之间的隔离，
 如虚拟化、容器和cgroup。
 虽然软件隔离方案能够很好的实现资源分配与保护，
-但它不足以提供有效的性能隔离，特别是无实现隔离由于硬件层次上资源竞争所造成的性能干扰。
+但它不足以提供有效的性能隔离，特别是由于硬件层次上资源竞争所造成的性能干扰。
 以Google数据中心为例，即使经过10多年生产环境的运行与优化，
 基于cgroup实现软件隔离的Borg系统仍然无法解决硬件层次所带来的干扰\cite{borg:2015}。
 因此，正如Dick Sites在其报告\cite{Dick:2015}中所提出，
@@ -105,12 +105,13 @@ YARN\cite{YARN}被广泛的应用在工业界。
 
 本文所提出的资源管理可编程体系结构（PARD）正是这样一种支持硬件隔离的服务器体系结构，
 它能够实现全硬件支持虚拟化（第\ref{chap:labeladdrspace}章），
-无需软件Hypervisor的支持，即可将一台物理服务器划分为多个相互隔离的子机器（逻辑域），
-在逻辑域内可以像虚拟机一样运行未修改的操作系统。
+在无需软件Hypervisor的支持下，即可将一台物理服务器划分为多个相互隔离的子机器（逻辑域），
+在逻辑域内可以像虚拟机一样运行未修改的操作系统与应用。
 同时PARD还提供了以逻辑域为粒度的区分化服务，
-通过可编程的硬件资源管理实现逻辑域之间的资源划分与性能隔离
+通过可编程的硬件资源管理机制实现逻辑域之间的资源划分与性能隔离
 （第\ref{chap:hwresman}章）。
-基于模拟器的实验结果也表明，PARD能够在硬件上实现良好的资源与性能隔离。
+基于模拟器的实验结果表明，PARD能够在硬件上实现有效的资源与性能隔离，
+平衡应用服务质量与服务器资源利用率。
 
 %To address this issue, we recently proposed a new computer architecture PARD
 %(Programmable Architecture for Resourcing-on-Demand) \cite{Ma:2015:PARD}, which
@@ -134,13 +135,6 @@ YARN\cite{YARN}被广泛的应用在工业界。
 如硬件中断机制的出现使得系统软件发展出分时系统、MMU硬件的出现促成了虚拟内存机制。
 本文所提出的PARD体系结构，以及其他一些硬件隔离技术的出现\cite{intel-rdt}，
 势必也会对未来系统软件的设计产生影响。
-
-本章主要讨论如何将PARD服务器集成到现有数据中心管理系统，
-并利用其提供的特性（表\ref{tab:pard-features}）实现数据中心资源管理，
-其架构如图\ref{fig:pard-dc-overview}所示。
-本节首先对数据中心管理系统进行简要介绍，
-然后对比已有节点内资源管理所需的软件栈支持，并
-带外管理相关内容。 介绍IPMI/BMC与带外管理，PARD的软件栈在此基础上进行扩充。
 
 \begin{figure}[tb]
   \centering
@@ -172,29 +166,78 @@ YARN\cite{YARN}被广泛的应用在工业界。
 \end{center}
 \end{table}
 
+本章主要讨论如何将PARD服务器集成到现有数据中心管理系统，
+并利用其提供的资源管理特性（表\ref{tab:pard-features}）实现高效的数据中心管理。
+未来数据中心传统服务器与PARD服务器共存，其架构如图\ref{fig:pard-dc-overview}所示，
+两种类型的服务器由数据中心管理系统统一管理，为不同类型的应用提供服务。
+PARD服务器与传统服务器主要的区别在于其提供了细粒度的资源管理、实时的性能监控、
+硬件支持的虚拟化与性能隔离，因此更适合于短时多变的作业；
+而长期运行，且负载稳定的应用可以通过软件管理的方式在传统服务器中运行。
+为实现以上架构，需要考虑两个问题：
+1）如何设计节点内资源管理，使其充分发挥PARD体系结构提供的硬件支持；
+2）如何修改数据中心管理系统，使其能够支持PARD体系结构。
+为解决以上两个问题，本节后续内容将对数据中心管理系统与节点内资源管理架构进行简要介绍。
+
+%首先对数据中心管理系统进行简要介绍，
+%然后对比已有节点内资源管理所需的软件栈支持，并
+%带外管理相关内容。 介绍IPMI/BMC与带外管理，PARD的软件栈在此基础上进行扩充。
+
 
 \subsection{数据中心管理系统}
 
-\begin{figure}[tbh]
+\begin{figure}[tb]
   \centering
   \includegraphics[width=0.7\textwidth]{swstk/mesos-arch}
   \caption{Mesos系统架构}
   \label{fig:mesos-arch}
 \end{figure}
 
-The above figure shows the main components of Mesos. Mesos consists of a master daemon that manages slave daemons running on each cluster node, and Mesos frameworks that run tasks on these slaves.
+如上文所述，数据中心管理系统需要为数据中心提供高可用、高可靠、高利用率以及快速部署支持。
+以Apache Mesos\cite{}为例，其架构如图\ref{fig:mesos-arch}所示，
+它通过集中式的master节点控制运行在服务器内的slave守护进程实现数据中心资源管理。
+master管理所有的资源，当slave注册到mesos集群时，将其提供的资源发送到master进行统一管理，
+这些资源主要指CPU、内存、磁盘，除此之外还包括其他用户自定义类型的资源，
+以资源列表的形式发送给master，如：
 
-The master enables fine-grained sharing of resources (CPU, RAM, …) across frameworks by making them resource offers. Each resource offer contains a list of <slave ID, resource1: amount1, resource2, amount2, …>. The master decides how many resources to offer to each framework according to a given organizational policy, such as fair sharing or strict priority. To support a diverse set of policies, the master employs a modular architecture that makes it easy to add new allocation modules via a plugin mechanism.
+\textit{<slave ID, resource1:amount1, resource2:amount2, ...>}
 
-A framework running on top of Mesos consists of two components: a scheduler that registers with the master to be offered resources, and an executor process that is launched on slave nodes to run the framework’s tasks (see the App/Framework development guide for more details about framework schedulers and executors). While the master determines how many resources are offered to each framework, the frameworks' schedulers select which of the offered resources to use. When a frameworks accepts offered resources, it passes to Mesos a description of the tasks it wants to run on them. In turn, Mesos launches the tasks on the corresponding slaves.
+mesos为用户提供framework抽象，主要包含两个部分：调度器（scheduler）与执行器（executor）。
+其中调度器与master节点交互并获取资源，执行器在slave节点上运行，执行由调度器发送的任务（task）。
+master根据用户设定的策略为每个framework分配资源，例如公平划分（fair sharing）或基于优先级的策略（strict priority）。
+当master决定分配多少资源给framework后，它将资源列表发送到framework的调度器，
+调度器从中选择其所需的资源，并将任务描述发送给master，由其分发到对应的slave节点执行。
 
-\subsection{带外管理与IPMI}
+%\textbf{mesos如何实现高可用、高可靠、高利用率以及快速部署？}
+mesos只提供了最基本的资源管理与调度功能，
+通过细粒度的资源管理与资源调度，实现了高利用率；
+并提供基于进程或容器的快速应用部署。
+通过自定义framework可以很容易的扩展mesos，
+如Marathon\cite{}在mesos的基础上实现了应用自动扩容与出错重启，实现了高可用与高可靠。
+
+
+\subsection{节点内资源管理架构}
+
+数据中心管理系统所提供的功能需要节点内提供相应支持，包括资源分配与隔离、资源监控等。
+
+有两种不同的架构实现节点内资源管理，一种是带内管理，另一种是带外管理。
+
+带内管理是指：
+
+带外管理是指：
+
+上节介绍的mesos slave daemon相当于带内管理，其他数据中心管理系统基本上都是使用带内管理；
+带内管理相比于带外管理最大的优点是，xxx。
+但其缺点也很明显，xxx。
 
 In computing, one form of out-of-band management is sometimes called lights-out management (or LOM) and involves the use of a dedicated management channel for device maintenance. It allows a system administrator to monitor and manage servers and other network-attached equipment by remote control regardless of whether the machine is powered on, or if an operating system is installed or functional.
 
 By contrast, in-band management like VNC or SSH is based on in-band connectivity and software that must be installed on the remote system being managed and only works after the operating system has been booted. This solution may be cheaper, but in computing it does not allow access to firmware (BIOS or UEFI) settings, does not make it possible to reinstall the operating system remotely, and it cannot be used to fix problems that prevent the system from booting. In networking, it does not allow management of remote network components independently of the current status of other network components.
 
 Both in-band and out-of-band (OOB) management are usually done through a network connection, but an out-of-band management card can use a physically separated network connector if preferred. A remote management card usually has at least partially independent power supply, and can power the main machine on and off through the network.
+
+
+PARD体系结构采用带外管理的方式管理节点内的资源，其PRM的设计是源于服务器中IPMI/BMC的设计，并对其功能进行扩展。
+原始的IPMI/BMC只提供了XXX的功能，其架构如图\ref{fig:ipmi-schem}所示，
 
 The Intelligent Platform Management Interface (IPMI) is a set of computer interface specifications for an autonomous computer subsystem that provides management and monitoring capabilities independently of the host system's CPU, firmware (BIOS or UEFI) and operating system. IPMI defines a set of interfaces used by system administrators for out-of-band management of computer systems and monitoring of their operation. For example, IPMI provides a way to manage a computer that may be powered off or otherwise unresponsive by using a network connection to the hardware rather than to an operating system or login shell
 
@@ -221,8 +264,11 @@ IPMB is an I²C based serial bus, which makes connection with various boards ins
 \textbf{Intelligent Chassis Management Bus (ICMB)}\quad
 ICMB provides a standardized interface for communication and control between chasses.
 
+PRM在其基础上通过控制平面与控制平面网络，将资源管理功能也增加到其中，PRM具体架构在第\ref{chap:prm:arch}节将进行详细介绍。
+
 
 \section{软件栈平台与架构}
+\label{chap:prm:arch}
 
 基于IPMI，增加控制平面网络，实现与控制平面通信
 
@@ -333,11 +379,13 @@ PARD实现PaaS的方式是通过类似于unikernel/LibOS的方式，
 用户提供应用，PARD软件栈提供OS kernel，并将两者组合运行在逻辑域中。
 具体流程如下，如图\ref{fig:pard-ldom-paas}：
 
-1）XXX
+1）用户提供需要执行的应用与数据，并选择所需的运行时环境和库；
 
-2）XXX
+2）将应用、数据、运行时环境打包为一个package，完成应用构建阶段；
 
-3）XXX
+3）系统根据用户选择的硬件资源配置创建逻辑域，将选择的内核与打包好的应用一起加载到逻辑域中；
+
+4）将逻辑域在PARD服务器上启动。
 
 \begin{figure}[tb]
   \centering
@@ -346,6 +394,7 @@ PARD实现PaaS的方式是通过类似于unikernel/LibOS的方式，
   \label{fig:pard-ldom-paas}
 \end{figure}
 
+通过以上方式实现硬件支持的容器，该方法也可以在其它只提供IaaS抽象的场景中实现PaaS的功能。
 
 \subsection{mesos系统集成}
 % mesos如何管理资源
