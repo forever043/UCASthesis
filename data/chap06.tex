@@ -136,47 +136,35 @@ YARN\cite{YARN}被广泛的应用在工业界。
 本文所提出的PARD体系结构，以及其他一些硬件隔离技术的出现\cite{intel-rdt}，
 势必也会对未来系统软件的设计产生影响。
 
-\begin{figure}[tb]
-  \centering
-  \includegraphics[width=0.6\textwidth]{swstk/pard-dc-overview}
-  \caption{PARD服务器与数据中心管理系统}
-  \label{fig:pard-dc-overview}
-\end{figure}
-
-\begin{table}[tb]
-\begin{center}
-\begin{tabular}{c|c|c}
-  \toprule[1.5pt]
-  & \textbf{Conventional Server} & \textbf{PARD Server}\\
-  \midrule[1pt]
-  \emph{Virtualization} & SW Supported & HW Supported\\
-  \hline
-  \emph{Perf. Isolation} & Unsupported & HW Surpported\\
-  \hline
-  \emph{Monitoring} & High overhead & Realtime\\
-  \hline
-  \emph{Perf. Adaption} & Coarse-grained  & Fine-grained\\
-  \hline
-%  \emph{Management} & Intergerited & Deccouple\\
-%  \hline
-  \bottomrule[1.5pt]
-\end{tabular}
-\caption{PARD服务器与传统服务器特性对比}
-\label{tab:pard-features}
-\end{center}
-\end{table}
-
 本章主要讨论如何将PARD服务器集成到现有数据中心管理系统，
 并利用其提供的资源管理特性（表\ref{tab:pard-features}）实现高效的数据中心管理。
-传统服务器与PARD服务器混合的数据中心架构如图\ref{fig:pard-dc-overview}所示，
-两种类型的服务器由数据中心管理系统进行统一管理，为不同类型的应用提供服务。
 PARD服务器与传统服务器主要的区别在于其提供了细粒度的资源管理、实时的性能监控、
 硬件支持的虚拟化与性能隔离，因此更适合于短时多变的作业；
 而长期运行，且负载稳定的应用可以通过软件管理的方式在传统服务器中运行。
+因此，传统服务器与PARD服务器将混合共存于数据中心，由数据中心管理系统进行统一管理，
+为不同类型的应用提供服务。
 为实现以上架构，需要考虑两个问题：
 1）如何设计节点内资源管理，使其充分发挥PARD体系结构提供的硬件支持；
 2）如何修改数据中心管理系统，使其能够支持PARD体系结构。
-为解决以上两个问题，本节后续内容将对数据中心管理系统与节点内资源管理架构进行简要介绍。
+为解决以上2个问题，本节后续内容将对数据中心管理系统与节点内资源管理架构进行简要介绍。
+
+\begin{table}[hb]
+  \centering
+  \begin{minipage}[t]{0.7\linewidth}
+  \caption{PARD服务器与传统服务器特性对比}
+  \label{tab:pard-features}
+  \begin{tabular}{p{0.3\textwidth}p{0.3\textwidth}p{0.3\textwidth}}
+    \toprule[1.5pt]
+                             & \textbf{传统服务器} & \textbf{PARD服务器} \\
+    \midrule[1pt]
+      \emph{Virtualization}  & SW Supported        & HW Supported        \\
+      \emph{Perf. Isolation} & Unsupported         & HW Surpported       \\
+      \emph{Monitoring}      & High overhead       & Realtime            \\
+      \emph{Perf. Adaption}  & Coarse-grained      & Fine-grained        \\
+    \bottomrule[1.5pt]
+  \end{tabular}
+  \end{minipage}
+\end{table}
 
 
 \subsection{数据中心管理系统}
@@ -254,78 +242,202 @@ PRM在其基础上通过控制平面与控制平面网络，将资源管理功�
 \section{软件栈平台与架构}
 \label{chap:prm:arch}
 
-基于IPMI，增加控制平面网络，实现与控制平面通信
+PARD使用带外管理的方式实现硬件资源的管理，
+与资源管理相关的软件栈运行在独立的平台资源管理模块（PRM）上。
+如图\ref{fig:pard-swstk-arch}所示，
+PRM是一个嵌入式的SoC系统，其中集成了处理器、内存、flash存储、以太网接口等模块；
+与IPMI/BMC模块使用IPMB/ICMB总线连接其控制单元类似，
+PRM通过控制平面网络（Control Plane Network，CPN）连接系统中所有的控制平面，
+以实现节点内集中式的资源管理；
+多台服务器的PRM模块共同连接到数据中心管理系统中，实现数据中心内统一资源管理。
 
-\begin{figure}[tbh]
+\begin{figure}[tb]
   \centering
-  \includegraphics{arch/pard-arch-outline.pdf}
-  \caption[PARD体系结构概况]{PARD体系结构概况}
-  \label{fig:pard-arch-outline}
+  \includegraphics[width=0.8\textwidth]{swstk/pard-swstk-arch}
+  \caption{PARD软件栈架构示意图}
+  \label{fig:pard-swstk-arch}
 \end{figure}
 
-与IPMI架构类似，PARD使用集中式的平台资源管理模块（platform resource manager，PRM）管理节点内所有的资源。
-PRM使用控制平面网络连接到系统内所有的控制平面，
 
-PRM是一个嵌入式SoC系统，
+PRM上运行基于Linux操作系统的固件，使用分层的方式实现，如图\ref{fig:prm-swstk}所示，
+从下到上依次是：1）控制平面驱动；2）控制平面抽象层；3）应用适配层。
+
+控制平面驱动层提供对所有控制平面的访问功能，
+它会在/dev目录下为每一个连接到CPN上的控制平面创建对应的设备文件
+（\textit{e.g.} /dev/cpa[0-9][0-9]*），
+对这些设备文件的访问会被驱动转换为对16位的控制平面地址空间的访问，
+通过第\ref{chap:hwresman}章所介绍的控制平面访问接口，
+实现对控制表及数据平面的访问。
+
+在控制平面驱动层的基础上，控制平面抽象层提供了更加友好的控制平面访问接口。
+利用linux的sysfs\cite{patrick_mochel_sysfs_2005}功能，实现控制平面的抽象，
+在/sys目录下为每个控制平面建立如图\ref{fig:pard-swstk-arch}所示的目录结构
+（\textit{e.g.} /sys/cpa/cpa[0-9][0-9]*），提供对控制平面的统一编程接口。
+用户可以使用文件系统系统调用（如read/write/ioctl），
+操作/dev目录下的设备文件实现控制平面编程，
+也可以直接使用bash命令（如echo/cat等）操作/sys目录下的文件实现对控制平面编程。
+直接操作/sys中的文件是更为推荐的方式，下节将详细描述/sys文件系统的功能与实现。
+
+应用适配层提供PARD体系结构在不同使用场景中的接口，
+本文PARD原型系统实现了本地逻辑域和Mesos Daemon两个接口，
+分别用于单节点资源管理与数据中心多节点资源管理。
+
+当服务器加电后PRM首先启动，由控制平面驱动枚举控制平面网络，识别系统中的控制平面；
+然后通过控制平面获取服务器的硬件资源信息，并建立sysfs下的控制平面抽象；
+后续管理员或数据中心管理系统通过应用适配层与PRM交互，
+将PARD服务器配置为多个逻辑域，运行用户的应用。
+
+%管理员可以为每个应用设定其监控条件，当某一硬件控制平面发现监控条件满足时，
+%则通过PRM通知上层管理架构，管理员可以通过PRM对不同应用的硬件资源使用进行管理。
+%本节后续将从逻辑域的创建、监控条件设定、参数调整三个方面介绍PARD服务器操作。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{swstk/prm-swstk.pdf}
+  \caption[PRM软件栈示意图]{PRM软件栈示意图}
+  \label{fig:prm-swstk}
+\end{figure}
 
 
-Like IPMI [6] in conventional servers, PARD includes a
-per-computer centralized platform resource manager (PRM) that
-connects all control planes and tag registers (see the dash lines in
-Figure 2). PRM is essentially an embedded system-on-chip (SoC)
-that consists of an embedded processor, RAM, flash, a local bus, an
-Ethernet adaptor and several control plane adaptors (CPAs).
+\subsection{控制平面抽象}
+\label{chap:prm:arch:cpabs}
 
-A Linux-based firmware running on PRM abstracts all control
-planes as a device file tree that is logically centralized. The
-firmware provides a uniform file based programming interface to
-access different control planes and a more advanced “trigger)action”
-programming methodology (see below) for operators to create and
-deploy resource management policies.
+PRM利用linux的sysfs机制为用户（数据中心管理系统）提供控制平面的统一访问接口，
+如图\ref{fig:prm-swstk}所示。
+
+在/sys/cpa目录下，每个控制平面被表示为一个树型目录结构，
+在每个目录下都会包含一些该控制平面的基本信息，
+如控制平面标识ident、控制平面类型type，
+本文实现的PARD原型系统支持的控制平面类型包括：
+Cache（``C''）、内存控制器（``M''）和I/O Bridge（``B''）。
+在控制平面的目录下还包含ldoms目录，
+其中包含两个用于逻辑域控制的文件``do\_create''和``do\_destroy''，
+分别用于创建和销毁逻辑域；
+ldoms目录下的每个子目录代表该控制平面上当前存在的逻辑域。
+向do\_create文件写入16位逻辑域编号即可在当前控制平面中创建该逻辑域，
+例如使用如下命令即可在cpa0控制平面下创建逻辑域LDom\#4：
+\begin{verse}
+\textit{echo} 4 \textit{> /sys/cpa/cpa}0\textit{/ldoms/do\_create}
+\end{verse}
+与之相对，向do\_destroy文件写入16位逻辑域编号则会销毁当前控制平面中指定的逻辑域，
+使用如下命令，即可将刚刚创建的逻辑域LDom\#4销毁：
+\begin{verse}
+\textit{echo} 4 \textit{> /sys/cpa/cpa}0\textit{/ldoms/do\_destroy}
+\end{verse}
+
+每当逻辑域被创建后，
+其所在控制平面的ldoms目录下都会创建一个与逻辑域同名的子目录
+（\textit{e.g.} ldom[0-9][0-9]*），
+例如上文创建逻辑域LDom\#4的命令同时会在``/sys/cpa/cpa0/ldoms''
+目录下创建名为ldom4逻辑域目录。
+该逻辑域目录下包含parameters、statistics和triggers 3个子目录，
+分别对应于控制平面内的3个控制表。
+其中parameters和statistics子目录下的文件与其控制表表项一一对应，
+以图\ref{fig:prm-swstk}中Cacge控制平面cpa0为例，
+其参数表的参数way\_mask、以及状态表的miss\_rate和capacity都有相应的sysfs文件。
+triggers目录与另外2个目录略有不同，该目录下为每一个有效的触发表项建立一个文件，
+通过这个文件能够设置其触发条件满足时所执行的动作，
+例如命令：
+\begin{verse}
+\textit{echo /scripts/some-scripts.sh > /sys/cpa/cpa}0
+\textit{/ldoms/ldom}0
+\textit{/triggers/}0
+\end{verse}
+会设置0号触发条件所执行的动作。
+在实际情况下，不仅可以使用shell脚本作为触发动作，
+在PRM上支持的任意语言的脚本、甚至可执行的ELF文件都可以作为触发动作，
+通过sysfs安装到对应的触发条件上。
+当前的原型系统实现，无法使用sysfs接口创建新的触发条件，
+只能访问/dev目录下的设备文件，直接操作触发表表（ttab）来创建触发条件，
+sysfs接口只提供对触发动作的修改功能。
 
 
 \section{节点内资源管理}
 
-\subsection{控制平面抽象}
+数据中心管理系统所提供的功能需要节点内提供相应支持，
+本节介绍PRM软件栈如何实现这些支持，具体包括
+逻辑域管理、资源隔离和性能监控三个方面。
 
-PRM利用linux的设备文件机制为用户（数据中心管理系统）提供控制平面的统一访问接口，
-图\ref{}给出了用户视角下的控制平面抽象。
+\subsection{逻辑域管理}
 
-每一个控制平面都被抽象为sysfs\cite{}下的文件，
+PARD服务器使用逻辑域抽象为用户提供服务，每个逻辑域都是PARD服务器硬件资源的子集，
+可直接在其中运行操作系统。
+不同的逻辑逻辑域独占部分资源，如处理器核、内存、I/O设备；
+另一些硬件资源在不同逻辑域中共享，如L2 Cache。
+当PRM收到逻辑域的创建请求后，PRM首先确认当前服务器是否有足够的资源满足逻辑域的需求，
+如果满足，则为其分配一个本地唯一的逻辑域标识，
+之后在各个硬件资源的控制平面中为该逻辑域分配所需的资源。
+例如，用户创建的逻辑域需要2个处理器核、2GB内存、一个硬盘和一个网卡,
+PRM在确认本地资源充足后，为其分配逻辑域标识LDom\#1，后续的创建流程如下：
 
-To provide a uniform interface for firmware users (data center operators)
-to access various control planes, we leverage Linux’s device
-file mechanism. Figure 6 shows the abstraction of the control planes
-from a firmware user’s perspective. Specifically, each control plane
-is connected to a PRM’s control plane adaptor (CPA) that is abstracted
-as a file and is mounted to the sysfs [55] of the firmware as
-“/sys/cpa/cpa[0-9][0-9]*”. Thus firmware users can use either bash
-commands (e.g., cat or echo) or system calls to access these files.
-Each control plane file is organized as a subtree, which contains
-some general information such as ident (e.g., cpa0’s “CACHE CP”
-in Figure 6) and type indicating which type of a control plane
-is, cache (“C”), memory (“M”) or I/O bridge (“B”). Besides, a
-control plane file further includes several subtrees, each of which
-represents a LDom with a specific DS-id. When a new LDom is
-created, the firmware creates a new subtree with root “ldom[0-9][0-
-9]*” under the node ldoms, where the number represent a DS-id.
-Take the ldom0 subtree as an example, there are three tiny trees
-with roots as parameters, statistics and triggers respectively, which
-are mapped to several rows of the three tables of the LLC control
-plane.
+\begin{enumerate}[leftmargin=2\parindent, nolistsep, label=\arabic*）]
+  \item 查询处理器核的控制平面，找到两个空闲的处理器核，并向其标签寄存器写入LDom\#1，
+        这两个处理器核后续发出的请求中将都包含该逻辑域标签。
+  \item 在L2 Cache控制平面中增加LDom\#1的控制表项，由于该用户在创建逻辑域时并没有对
+        Cache指定特殊需求，因此为其分配默认的替换策略掩码，与其他用户共享L2 Cache。
+  \item PRM查询内存地址分配，找到空闲的2GB内存空间，
+        在内存控制器控制平面中建立逻辑域LDom\#1的控制表项，
+        将查询到的2GB空闲内存的地址写入控制表项，保存逻辑域与内存地址的关联，
+        内存控制器在收到后续带有LDom\#1标签的访存请求后，会将查询地址映射信息，
+        将来自不同逻辑域的访存地址映射到其对应的内存区域中。
+  \item PRM为逻辑域分配磁盘和网卡，通过I/O控制平面将两个设备的标签寄存器设置为LDom\#1。
+        这两个设备对内存的DMA请求中都包含该标签，保证其能够访问到逻辑域的内存地址空间；
+        当前大部分的PCI-E设备都使用MSI方法产生中断，而MSI的本质是对特殊地址的访存请求，
+        该请求中已经包含了逻辑域标签，
+        因此中断请求能够被正确的发送到分配给该逻辑域的处理器核。
+  \item PRM查询这两个设备在I/O总线上的物理地址以及所需的I/O地址空间长度，
+        在逻辑域的地址空间中为这两个设备分配地址空间，
+        通过I/O控制平面将分配的逻辑域地址空间与设备的物理地址映射记录到LDom\#1的控制表项。
+\end{enumerate}
+
+在资源分配完成后，PRM通过处理器控制平面，将两个处理器核复位，
+之后选择一个处理器核作为Bootstrap Processor（BSP），令其开始执行BIOS代码，并启动操作系统。
+由于不同的逻辑域使用不同的标识，在整个计算机的数据通路中都能够根据该标识对逻辑域实现区分，
+实现逻辑域之间的资源隔离。
+
+用户的应用在运行时对硬件资源的需求会发生变化，PARD提供了运行时调整硬件资源分配的方法，
+允许用户根据需求在运行时对逻辑域的资源分配进行调整，以满足应用的需求。
+硬件资源包括可透明调整的资源，如Cache容量、访存带宽等；
+也包括需要操作系统支持的资源，如处理器核、内存容量、I/O设备。
+
+在创建逻辑域时，同时还可以指定其性能参数，如Cache替换策略掩码、访存调度优先级、
+I/O带宽等，各个硬件部分根据其控制平面中指定的性能参数实现对不同逻辑域的区分化服务。
+
+
+\subsection{资源隔离}
+
+软件怎么实现资源隔离：cgroup、hypervisor
+
+PARD以逻辑域为粒度进行资源隔离。
+
+
+
+使用默认参数创建的逻辑域，其资源是完全共享的。
+
+PRM提供接口实现对不同逻辑域的资源进行隔离，具体方法如下，以Cache为例。
+
+
+
+
+\subsection{性能监控与反馈}
+
+性能监控与反馈主要得益于控制平面的设计，通过在硬件上增加控制平面，对请求进行处理，
+可以获得不同的应用的状态。如Cache缺失率、访存延迟等。
+并通过一个可编程的触发逻辑，当特定事件发生后，将消息通过统一的控制平面网络，
+发送到集中式的资源管理模块PRM，由PRM对资源分配进行调整。
 
 Programming Methodology
-As mentioned in x3, we adopt a “trigger)action” programming
+As mentioned in x3, we adopt a ``trigger$\Rightarrow$action'' programming
 methodology. Data center operators predefine a set of trigger)action
 rules for different priorities. Usually a trigger is based on performance
-metrics, e.g., “MissRate>30%”.
+metrics, e.g., ``MissRate>30\%''.
 Example 1 in Figure 6 demonstrates how to install a trigger)action
 rule. A data center operator uses the pardtrigger command to program
-the trigger condition “MissRate>30%” for “ldom=0” (i.e.,
+the trigger condition ``MissRate>30\%'' for ``ldom=0'' (i.e.,
 DS-id=0) into the trigger table of the cache control plane (cpa0).
-The parameter “action=0” guides the command to create a leaf
-node “0” under “.../cpa0/ldoms/ldom0/triggers”. Then the operator
-calls “echo ...” to install the action script “/cpa0 ldom0 t0.sh”
+The parameter ``action=0'' guides the command to create a leaf
+node ``0'' under ``.../cpa0/ldoms/ldom0/triggers''. Then the operator
+calls ``echo ...'' to install the action script ``/cpa0-ldom0-t0.sh''
 shown in Example 2.
 There are two programming approaches based on the device file
 tree. One is invoking system calls (open/read/write etc.) to open
@@ -334,12 +446,6 @@ is written in C and invokes syscalls to install a trigger into the
 cache control plane. The advantage of this approach is very fast. A
 more convenient approach is leveraging bash commands to directly
 access these CPA files, as shown in Example 2.
-
-
-\subsection{实现虚拟机}
-
-
-\subsection{实现QoS管理}
 
 
 \section{与数据中心结合}

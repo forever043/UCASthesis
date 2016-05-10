@@ -108,7 +108,7 @@
 体系结构内，硬件部件相当于网络设备，需要一个统一架构实现资源管理。
 该架构需要具有以下特性：
 
-\begin{enumerate}[1{）}]
+\begin{enumerate}[leftmargin=2\parindent, nolistsep, label=\arabic*）]
   \item 能够适应不同类型的硬件资源
   \item 能够很容易的集成现有资源管理机制与策略
   \item 灵活的可编程策略实现
@@ -367,6 +367,7 @@ action是对针对该触发条件所执行的动作，因此action也可以被�
 %将在第\ref{chap:prm}中进行统一介绍。
 
 \subsection{通用控制平面微体系结构设计}
+\label{chap:hwresman:cp:uarch}
 
 综合以上控制平面功能与设计，其微体系结构如图\ref{fig:pard-cp-design}所示。
 PARD控制平面的核心是三个控制表，即参数表、状态表和触发表。
@@ -452,34 +453,31 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 幸运的是目前系统中Cache控制器都是基于流水线设计，
 这就使得控制平面的逻辑开销能够隐藏在原有的流水线中，具体流程如下：
 
-（1）当一个包含DS-id和地址的Cache访问请求到达控制器时，
-首先需要利用DS-id从参数表中获得相应的路划分掩码。
-例如掩码``0x00FF''代表在整个16路中仅使用低端的8路。
-与此同时，请求地址被用来在Tag Array中查找相应的条目，
-这些条目除了普通的Tag和状态信息以外，还保存有DS-id；
+\begin{enumerate}[leftmargin=2\parindent, nolistsep, label=（\arabic*）]
+  \item 当一个包含DS-id和地址的Cache访问请求到达控制器时，
+        首先需要利用DS-id从参数表中获得相应的路划分掩码。
+        例如掩码``0x00FF''代表在整个16路中仅使用低端的8路。
+        与此同时，请求地址被用来在Tag Array中查找相应的条目，
+        这些条目除了普通的Tag和状态信息以外，还保存有DS-id；
+  \item 伪LRU逻辑利用参数表输出的掩码以及Tag Array输出的访问历史计算出哪一路需要被替换；
+  \item 如果请求在缓存中命中，那么数据将从Data Array中取回，
+        连同请求的DS-id一起通过NoC或者crossbar返回给CPU。
+        需要注意的是，缓存的命中条件发生了改变，除了请求地址与条目Tag之间原有的约束以外，
+        还需要请求DS-id与条目DS-id相互匹配。
+  \item 如果请求在缓存中没有命中，Cache控制器会分配一个MSHR条目，
+        并在该条目中保存原始请求及其DS-id。
+        当被请求的数据返回时，Cache控制器需要将MSHR中保存的原始请求DS-id写入到TagArray中。
+        该DS-id作为``owner DS-id''，在脏数据写回时，
+        需要与地址和数据一同送入回写缓存，并发送到内存控制器。
+  \item 在以上各个步骤的过程中，Cache控制平面还会完成以下若干操作：
+        更新统计表，将Cache使用统计数据发送给平台资源管理器，
+        在必要时激活触发条件并发出一个中断信号给PRM。
+        需要特别指出的是这些操作并不在关键路径上，不会对延迟造成影响。
+\end{enumerate}
 
-（2）伪LRU逻辑利用参数表输出的掩码以及Tag Array输出的访问历史计算出哪一路需要被替换；
-
-（3）如果请求在缓存中命中，那么数据将从Data Array中取回，
-连同请求的DS-id一起通过NoC或者crossbar返回给CPU。
-需要注意的是，缓存的命中条件发生了改变，除了请求地址与条目Tag之间原有的约束以外，
-还需要请求DS-id与条目DS-id相互匹配。
-
-（4）如果请求在缓存中没有命中，Cache控制器会分配一个MSHR条目，
-并在该条目中保存原始请求及其DS-id。
-当被请求的数据返回时，Cache控制器需要将MSHR中保存的原始请求DS-id写入到TagArray中。
-该DS-id作为``owner DS-id''，在脏数据写回时，
-需要与地址和数据一同送入回写缓存，并发送到内存控制器。
-
-（5）在以上各个步骤的过程中，Cache控制平面还会完成以下若干操作：
-更新统计表，将Cache使用统计数据发送给平台资源管理器，
-在必要时激活触发条件并发出一个中断信号给PRM。
-需要特别指出的是这些操作并不在关键路径上，不会对延迟造成影响。
-
-可编程接口用于PRM固件访问该控制平面的三个控制表，
-它首先从PRM接收控制表的访问命令，选择相应的表并从指定的表项中读取或写入数据，
-更多细节请参见第\ref{chap:prm}章。
-
+%可编程接口用于PRM固件访问该控制平面的三个控制表，
+%它首先从PRM接收控制表的访问命令，选择相应的表并从指定的表项中读取或写入数据，
+%更多细节请参见第\ref{chap:prm}章。
 
 \textbf{内存控制器控制平面}\quad
 图\ref{fig:pard-mig-cpdesign}是内存控制器控制平面的微体系结构示意图，
@@ -520,17 +518,14 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 在添加了以上机制后，当一个带有DS-id的内存访问请求到达内存控制器时，
 将会顺序引发下列操作：
 
-（1）控制平面利用请求的DS-id从参数表中获得与之相应的地址映射信息、
-队列优先级以及行缓冲编号；
-
-（2）请求逻辑域物理地址被转换成DRAM物理地址；
-
-（3）根据控制表中获取的优先级信息将请求连同DS-id置入相应的请求等待队列中；
-
-（4）DRAM调度器根据高优先级优先以及FR-FCFS\cite{rixner_memory_2000}策略从等待队列中选取请求进行服务；
-
-（5）控制平面更新统计表并检查是否满足触发条件，如果满足则发送中断信号到PRM。
-
+\begin{enumerate}[leftmargin=2\parindent, nolistsep, label=（\arabic*）]
+  \item 控制平面利用请求的DS-id从参数表中获得与之相应的地址映射信息、
+        队列优先级以及行缓冲编号；
+  \item 请求逻辑域物理地址被转换成DRAM物理地址；
+  \item 根据控制表中获取的优先级信息将请求连同DS-id置入相应的请求等待队列中；
+  \item DRAM调度器根据高优先级优先以及FR-FCFS\cite{rixner_memory_2000}策略从等待队列中选取请求进行服务；
+  \item 控制平面更新统计表并检查是否满足触发条件，如果满足则发送中断信号到PRM。
+\end{enumerate}
 
 \subsection{模拟器实现与评测}
 
@@ -587,8 +582,9 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 为了验证``\emph{trigger$\Rightarrow$action}''机制的效果，
 预先在PRM中为memcached所在的逻辑域LDom\#0定义了与图\ref{fig:trigger-action-flow}
 类似的触发规则：
-
+\begin{verse}
 ``\emph{LLC.MissRate $>$ 30\% $\Rightarrow$ 增加LLC容量到全部容量的50\%}''
+\end{verse}
 
 在启动所有的逻辑域前，将以上规则安装到处理器末级缓存控制平面中，
 图\ref{fig:pardsim:memcached-20krps-missrate}给出了实验过程中收集的处理器末级缓存缺失率，
@@ -628,15 +624,17 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 本节验证控制平面对带宽的控制，这里使用磁盘I/O带宽作为实验目标。
 
 在本节的实验中，只使用模拟器中两个逻辑域，在其中使用以下命令执行磁盘写操作：
-
-``\emph{dd if=/dev/zero of=/dev/sdb bs=32M count=16}''
+\begin{verse}
+\textit{dd if=/dev/zero of=/dev/sdb bs=}32\textit{M count=}16
+\end{verse}
 
 初始状态下，两个逻辑域共享磁盘控制器且具有相同的优先级，由于它们执行的命令与参数完全相同，
 因此两个逻辑域所得到的磁盘I/O带宽完全相同。
 此时假设逻辑域LDom\#0的用户需要得到更好的I/O性能，例如云计算场景下通过更高的费用获取更快的性能，
 管理员可以在PRM内执行以下命令重新调整服务器中磁盘I/O带宽的分配，将80\%的带宽分配给该用户。
-
-``\emph{echo 80 $>$ /sys/cpa/cpa3/ldom0/parameters/bandwidth}''
+\begin{verse}
+\textit{echo} 80 \textit{$>$ /sys/cpa/cpa}3\textit{/ldom}0\textit{/parameters/bandwidth}
+\end{verse}
 
 该命令通过PRM对磁盘控制器控制平面（cpa3）进行编程，修改LDom\#0的带宽占比为80\%，
 图\ref{fig:pardsim:iosched}给出了磁盘I/O带宽分配的效果。
@@ -690,7 +688,7 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 
 由于数据平面处理器位于请求处理的关键路径上，为了保障系统的性能不受影响，需要从以下三个方面进行考虑：
 
-\begin{enumerate}[{（}1{）}]
+\begin{enumerate}[leftmargin=2\parindent, nolistsep, label=\arabic*）]
   \item 处理器需要执行一系列指令才能完成对请求的处理，因此处理器需要工作在比其所在硬件部件更高频率，以满足硬件部件的性能需求；
   \item 处理器的固件代码执行需要确定性，因此不能使用cache结构，而是使用scratchpad memory代替；
   \item 由于高频需求，因此处理器功能要尽可能简单，一些必需的复杂的逻辑（如数据压缩与加密等）通过外部加速器的方式进行扩展。

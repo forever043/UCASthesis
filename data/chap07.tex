@@ -99,7 +99,7 @@ with kernel 2.6.28.4 and memcached 1.4.17 \cite{memcached} of CloudSuite \cite{F
 实现PARD原型系统的第一个工作是选择一个合适的基础系统，
 PARD对基础系统有以下需求：
 
-\begin{enumerate}[1{）}]
+\begin{enumerate}[leftmargin=2\parindent, nolistsep, label=\arabic*）]
   \item 能够在FPGA环境下综合；
   \item 独立系统，不依靠任何辅助设施即可运行；
   \item 丰富的I/O设备支持，支持Xilinx VC709开发板所提供的外设，如以太网和PCI-Express；
@@ -545,6 +545,11 @@ PARD的资源开销主要体现在三个方面，分别是：
 本节将分别对这三方面的开销进行评估。
 
 \subsection{标签传播资源开销}
+
+PARD需要增加标签，会在数据通路上产生额外的开销。
+在FPGA原型系统中，使用AXI Interconnect实现总线互连，本节评估标签产生的资源开销，如图所示。
+该Interconnect配置为：8*slave + 1*master，slice reg。
+在增加16位标签后，在LUT上增加了xx\%，在FF上增加了xx\%，在BRAM上增加了xx\%。
 
 \subsection{控制平面资源开销}
 
