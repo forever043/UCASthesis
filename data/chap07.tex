@@ -388,9 +388,6 @@ DP口请求地址重映射与内存控制器控制平面的实现相同，不同
 在本节的测试中将同时运行两个逻辑域，其配置完全相同，都包含一个处理器核和1GB的内存，
 在其中运行相同的应用，通过cacehcp调整其缓存容量的分配，实现区分化服务。
 
-\textbf{TODO: stream在不同cache容量下的表现}
-
-
 图\ref{fig:diffserv-mcf-ipc-hitrate}给出了mcf的测试结果，在本实验中两个逻辑域分别分配了4路和12路的缓存容量，
 从总执行时间上可以看到两者存在明显的差别，
 
@@ -401,8 +398,10 @@ DP口请求地址重映射与内存控制器控制平面的实现相同，不同
   \label{fig:diffserv-mcf-ipc-hitrate}
 \end{figure}
 
-
-\textbf{TODO: memcached在不同Cache容量下的表现}
+图\ref{fig:diffserv-memcached-rps}给出了memcached的测试结果，
+RPS上出现明显差别。
+在12路时，LLC命中率为 0.981943。
+在4路时，LLC命中率为0.771881。
 
 为了评估在内存控制器控制平面提供的区分化服务功能，在本实验中关闭了Cache模块，
 让处理器的访存请求直接发送到内存控制器。
@@ -419,12 +418,28 @@ DP口请求地址重映射与内存控制器控制平面的实现相同，不同
 目前内存控制器调度策略只实现了三个优先级，无法对每个逻辑域带宽进行精确控制，
 后续可以对策略进行修改，以实现基于目标带宽的调度策略。
 
+%\begin{figure}[htb]
+%  \centering
+%  \includegraphics[width=0.5\textwidth]{impl/diffserv-stream-generator}
+%  \caption{区分化服务：访存优先级}
+%  \label{fig:diffserv-stream-generator}
+%\end{figure}
+
 \begin{figure}[htb]
+\begin{minipage}[b]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.5\textwidth]{impl/diffserv-stream-generator}
+  \includegraphics[width=\textwidth]{impl/diffserv-memcached-rps}
+  \caption{区分化服务：memcached}
+  \label{fig:diffserv-memcached-rps}
+\end{minipage}\hfill
+\begin{minipage}[b]{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{impl/diffserv-stream-generator}
   \caption{区分化服务：访存优先级}
   \label{fig:diffserv-stream-generator}
+\end{minipage}
 \end{figure}
+
 
 \subsection{性能隔离}
 
@@ -550,6 +565,9 @@ PARD需要增加标签，会在数据通路上产生额外的开销。
 在FPGA原型系统中，使用AXI Interconnect实现总线互连，本节评估标签产生的资源开销，如图所示。
 该Interconnect配置为：8*slave + 1*master，slice reg。
 在增加16位标签后，在LUT上增加了xx\%，在FF上增加了xx\%，在BRAM上增加了xx\%。
+无标签：LUT 2041 \& FF 895\\
+16位标签：LUT 2181 \& FF 930
+
 
 \subsection{控制平面资源开销}
 

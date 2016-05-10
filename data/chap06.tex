@@ -171,7 +171,7 @@ PARD服务器与传统服务器主要的区别在于其提供了细粒度的资�
 
 \begin{figure}[tb]
   \centering
-  \includegraphics[width=0.7\textwidth]{swstk/mesos-arch}
+  \includegraphics[width=\textwidth]{swstk/mesos-arch}
   \caption{Mesos系统架构}
   \label{fig:mesos-arch}
 \end{figure}
@@ -270,13 +270,13 @@ PRM上运行基于Linux操作系统的固件，使用分层的方式实现，如
 实现对控制表及数据平面的访问。
 
 在控制平面驱动层的基础上，控制平面抽象层提供了更加友好的控制平面访问接口。
-利用linux的sysfs\cite{patrick_mochel_sysfs_2005}功能，实现控制平面的抽象，
+利用linux的sysfs\cite{patrick_mochel_sysfs_2005}机制，实现控制平面的抽象，
 在/sys目录下为每个控制平面建立如图\ref{fig:pard-swstk-arch}所示的目录结构
 （\textit{e.g.} /sys/cpa/cpa[0-9][0-9]*），提供对控制平面的统一编程接口。
 用户可以使用文件系统系统调用（如read/write/ioctl），
 操作/dev目录下的设备文件实现控制平面编程，
 也可以直接使用bash命令（如echo/cat等）操作/sys目录下的文件实现对控制平面编程。
-直接操作/sys中的文件是更为推荐的方式，下节将详细描述/sys文件系统的功能与实现。
+直接操作/sys中的文件是更为推荐的方式，下节将详细描述控制平面抽象以及/sys文件系统的功能。
 
 应用适配层提供PARD体系结构在不同使用场景中的接口，
 本文PARD原型系统实现了本地逻辑域和Mesos Daemon两个接口，
@@ -420,6 +420,13 @@ PRM提供接口实现对不同逻辑域的资源进行隔离，具体方法如�
 
 
 \subsection{性能监控与反馈}
+
+按照性能监控的发起者，可将性能监控分为pull和push两类。
+目前大多数系统都使用pull的方式获取硬件资源监控信息，
+如处理器内常见的Performance Counter，通过xxx，获取监控信息。
+这种方式需要用户主动参与，才能获取信息。
+PARD在控制平面上使用硬件实现资源监控，以硬件请求为粒度，将实时的状态信息更新到其中状态表中，
+通过PRM软件栈的sysfs抽象，可以随时获取实时的状态信息。
 
 性能监控与反馈主要得益于控制平面的设计，通过在硬件上增加控制平面，对请求进行处理，
 可以获得不同的应用的状态。如Cache缺失率、访存延迟等。
