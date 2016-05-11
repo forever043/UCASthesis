@@ -398,15 +398,27 @@ I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）
 
 \section{数据平面实现}
 
-我们修改了该原型系统的内存控制器部分，在其中增加了数据平面处理器（图10箭头所标识的区域），通过软件代码的方式实现内存地址映射功能。为简化实现，我们使用精简配置的MicroBlaze实现数据平面处理器的功能。
+为验证数据平面处理器的性能与资源开销，在内存控制器数据平面中增加数据平面处理器
+（图\ref{fig:pard-fpga-routed}中migcp processors标记的区域），
+通过执行软件代码的方式实现内存地址映射功能。
+为简化实现，直接使用精简配置的MicroBlaze作为数据平面处理器，并对其进行以下改造：
 
-（1）将MicroBlaze配置为精简模式，去除所有与数据平面处理器无关的可选指令，如：硬件FPU、乘法器/除法器、扩展指令等；关闭MMU、Cache、中断异常等高级功能，只保留最基本的算术逻辑部分。通过精简配置，MicroBlaze系统的频率从133MHz提高到了250MHz。
+\begin{enumerate}[leftmargin=2\parindent, nolistsep, label=\arabic*）]
+  \item 将MicroBlaze配置为精简模式，去除所有与数据平面处理器无关的可选指令，
+        如：硬件FPU、乘法器/除法器、扩展指令等；
+        关闭MMU、Cache、中断异常等高级功能，只保留最基本的算术逻辑部分。
+        通过精简配置，MicroBlaze系统的频率可以从133MHz提高到250MHz。
+  \item 使用MicroBlaze提供的Stream Link接口作为数据平面处理器的请求接口。
+        由于目前MicroBlaze的Stream Link接口是固定的32位AXIS接口，
+        需要将多个Stream Link合并使用作为一个请求接口。
+  \item MicroBlaze提供put/get指令实现对Stream Link的接口，
+        通过合并多个put或get指令即可实现请求缓存指令rbput和rbget。
+        如表\ref{tab:pard-dp-isa-impl}所示，``请求''类型的长度为12个字节，
+        使用3个MicroBlaze通用寄存器（r10-r12）作为请求寄存器，
+        使用get/put指令操作Stream Link接口fsl0，实现rbget和rbput的功能。
+\end{enumerate}
 
-（2）使用MicroBlaze提供的Stream Link接口作为数据平面处理器的请求接口。由于目前MicroBlaze的Stream Link接口是固定的32位AXIS接口，我们将多个Stream Link合并使用作为一个请求接口。
-
-（3）MicroBlaze提供put/get指令实现对Stream Link的接口，通过合并多个put或get指令即可实现请求缓存指令rbput和rbget。如表\ref{tab:pard-dp-isa-impl}所示，``请求''类型的长度为12个字节，我们使用3个MicroBlaze通用寄存器（r10-r12）作为请求寄存器，通过使用get/put指令操作Stream Link接口fsl0，实现rbget和rbput的功能。
-
-\begin{table}[htb]
+\begin{table}[tb]
   \centering
   \begin{minipage}[t]{0.6\linewidth}
   \caption{请求缓存指令的MicroBlaze实现}
@@ -432,29 +444,33 @@ I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）
 
 \section{性能评估}
 
-前三节使用microbenchmark：stream测带宽、spec测ipc
-
 由于MicroBlaze的TLB中没有类似AccessBit的访问历史信息，
-在当前的linux kernel实现中TLB替换策略使用的是clock算法，
-这造成应用在运行过程中频繁发生TLB miss与重填动作，
-大约有一半以上的时间花费在kernel中执行TLB相关操作，
+在当前的Linux内核实现中TLB替换策略使用clock算法，
+造成应用在运行过程中频繁发生TLB miss与重填动作，
+通过评估发现，有一半以上的时间都花费在kernel中执行TLB相关操作，
 造成corecp和cachecp统计的IPC与命中率不准确。
 为了得到准确的IPC与命中率信息，
-我们将部分应用（429.mcf、cacheflush microbenchmark）移植到uboot环境下，
+需要将部分应用（429.mcf、cacheflush microbenchmark）移植到uboot环境下，
 由于在uboot环境中由于并没有开启MMU，因此不会受到TLB的影响。
-而像memcached这样的应用，对操作系统的依赖很大，无法移植，
-但这样的应用我们只关注其端到端的性能，因此这些性能上的差异可以忽略。
+像memcached这样的应用，对操作系统的依赖很大，无法移植，
+而这样的应用通常只关注其端到端的性能，因此TLB造成的性能差异可以忽略。
 
 
 \subsection{区分化服务}
 
 在PARD中使用逻辑域的抽象，可以为不同的逻辑域分配不同的资源，
 本节将测试PARD如何为相同的应用分配不同的资源，以实现区分化服务的功能。
-在本节的测试中将同时运行两个逻辑域，其配置完全相同，都包含一个处理器核和1GB的内存，
-在其中运行相同的应用，通过Cache控制平面调整其缓存容量的分配，实现区分化服务。
+实验过程中同时运行两个配置完全相同的逻辑域，都包含一个处理器核和1GB内存，
+两个逻辑域内运行相同的应用，通过Cache控制平面调整其缓存容量的分配，
+验证PARD在末级缓存资源上区分化服务的效果。
 
-图\ref{fig:diffserv-mcf-ipc-hitrate}给出了mcf的测试结果，在本实验中两个逻辑域分别分配了4路和12路的缓存容量，
-从总执行时间上可以看到两者存在明显的差别，
+图\ref{fig:diffserv-mcf-ipc-hitrate}给出了429.mcf的测试结果，
+通过为两个逻辑域分配不同的缓存容量（4路和12路），
+两个逻辑域内应用的总执行时间、以及缓存命中率存在明显的差别。
+图\ref{fig:diffserv-memcached-rps}是使用memcached作为测试负载的结果，
+分配到12路缓存的逻辑域，其运行过程中缓存命中率平均约为98.19\%，
+而只分配到4路缓存的逻辑域，其缓存命中率只有77.19\%。
+从最终memcached的性能来看，两者之间也存在了大约20\%的性能差别。
 
 \begin{figure}[tb]
   \centering
@@ -478,20 +494,14 @@ I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）
 \end{minipage}
 \end{figure}
 
-
-图\ref{fig:diffserv-memcached-rps}给出了memcached的测试结果，
-RPS上出现明显差别。
-在12路时，LLC命中率为 0.981943。
-在4路时，LLC命中率为0.771881。
-
 为了评估在内存控制器控制平面提供的区分化服务功能，在本实验中关闭了Cache模块，
 让处理器的访存请求直接发送到内存控制器。
-使用stream测试单个逻辑域的访存带宽为19.8MB/s，以此作为对比的基线。
-在测试过程中，我们发现内存控制器的性能要远高于4个MicroBlaze处理器同时访存的需求，
-为了进行本实验，需要对原型系统进行修改，使内存控制器发生资源竞争，
-具体做法如下：将第4个处理器核更换为一个访存负载发生器，由它持续向内存控制器发送访存请求，
+使用stream benchmark\cite{stream}测试单个逻辑域的访存带宽为19.8MB/s，以此作为对比的基线。
+在测试过程中发现，内存控制器所能提供的性能要远高于4个MicroBlaze处理器同时访存的需求，
+为了进行本实验，需要对原型系统进行修改，使内存控制器发生资源竞争。
+具体做法如下：将第4个处理器核更换为访存负载发生器，由它持续向内存控制器发送访存请求，
 为了保证系统正确运行，该负载发生器只生成读请求，其余3个处理器核分别运行逻辑域，
-并在其中使用stream发送读请求测试访存带宽。
+并在其中使用stream benchmark发送读请求测试访存带宽。
 在内存控制器控制平面为这3个逻辑域设置不同的优先级，同时为负载发生器设置为低优先级。
 图\ref{fig:diffserv-stream-generator}给出了评测结果，
 可以看到3个逻辑域的访存性能有明显的区分，相比于基线分别有89\%、52\%和36\%的带宽下降，
@@ -499,24 +509,12 @@ RPS上出现明显差别。
 目前内存控制器调度策略只实现了3个优先级，无法对每个逻辑域带宽进行精确控制，
 后续可以对策略进行修改，以实现基于目标带宽的调度策略。
 
-%\begin{figure}[htb]
-%  \centering
-%  \includegraphics[width=0.5\textwidth]{impl/diffserv-stream-generator}
-%  \caption{区分化服务：访存优先级}
-%  \label{fig:diffserv-stream-generator}
-%\end{figure}
-
 
 \subsection{性能隔离}
 
-一个LDom运行关键应用（如mcf或stream），另外3个LDom进行干扰，
- - 通过cache划分，实现性能隔离；
- - 在mig前增加干扰，保证关键应用性能不受影响
-
-图\ref{fig:isolation-mcf-ipc-hitrate}给了隔离测试结果，LDom\#0运行mcf，
-另外3个逻辑域运行干扰应用，单独运行时独占所有16路的Cache，执行时间大约为150秒；
-与3个干扰应用同时运行时，执行时间延长到222秒，大约增加了48\%；
-使用隔离的方式，将12路Cache分配给mcf，性能恢复，只增加了7\%的执行时间。
+本节实验以Cache控制平面为例，验证PARD提供的性能隔离功能。
+该实验同时启动4个逻辑域，在其中1个逻辑域内运行关键应用429.mcf或memcached，
+另外3个逻辑域内运行干扰程序。
 
 \begin{figure}[tb]
   \centering
@@ -525,35 +523,64 @@ RPS上出现明显差别。
   \label{fig:isolation-mcf-ipc-hitrate}
 \end{figure}
 
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.6\textwidth]{impl/isolation-memcached}
+  \caption{性能隔离：memcached}
+  \label{fig:isolation-memcached}
+\end{figure}
+
+图\ref{fig:isolation-mcf-ipc-hitrate}给出了使用429.mcf负载的测试结果，
+其中LDom\#0运行429.mcf，另外3个逻辑域运行干扰应用。
+当LDom\#0单独运行时，它独占所有16路的Cache，执行时间大约为150秒；
+与3个干扰应用同时运行时，执行时间延长到222秒，大约增加了48\%；
+通过PARD提供的缓存隔离机制，将12路Cache分配给mcf，其性能基本恢复，
+只增加了7\%的执行时间。
+
+更换关键应用负载为memcached后，其测试结果如图\ref{fig:isolation-memcached}所示。
+整个测试过程分为5个阶段：
+T0阶段memcached单独运行，其性能大约为620RPS；
+T1-T3阶段分别增加3个干扰应用，性能依次衰减到580RPS，520RPS和480RPS；
+T4阶段通过Cache控制平面对缓存容量进行划分，将15路缓存分配给memcached所在逻辑域，
+memcached的性能恢复到了600RPS左右。
+
 
 \subsection{策略生效时间}
 \label{chap:impl:trigger-latency}
 
-1个LDom运行mcf，另外3个运行干扰；
-写一个trigger=>action，通过ipc/missrate控制waymask，
-测试生效时间：
- - 应用性能变化 （理论上没有变化）
- - 总的响应时间 + 响应时间分段
- - 结论：没有实现ms级的原因是microblaze性能问题
+本节实验测试通过``trigger$\Rightarrow$action''机制实现缓存容量调整的效果及生效时间。
+本实验使用memcached作为关键应用负载，实验过程与上节相同，在不同时间依次加入3个干扰应用。
+与上节实验的区别在于，不需要手动调节容量划分，
+而是使用``trigger$\Rightarrow$action''机制进行自动调节。
+具体方法如下：1）编写action动作脚本，在其中分配15路缓存给memcached所在逻辑域；
+2）在Cache控制平面的触发表中增加触发条件``Cache缺失率超过30\%''，
+并将其触发动作设置为1）中编写的动作脚本。
 
-在PARD体系结构基于表的控制平面设计中，
-``Trigger$\Rightarrow$Action''机制的反馈时间可以主要分为Trigger事件检测、
-控制平面网络传送事件消息、PRM处理事件、以及控制平面网络传送Action的参数修改4个部分。
-其中第一阶段由控制表硬件逻辑完成，可以在有限的时钟周期内完成；
-第二和第四阶段由于需要使用控制平面网络传送数据，因此其响应时间与控制平面网络的速率相关，
-在我们目前的原型系统中，由于使用了$I^2C$总线作为控制平面网络，其最高速率为1Mbit/s，
-对于一个32bit的事件消息以及一组96bit的参数修改消息，至少需要128us完成数据传输，
-如果需要传输更多的消息则需要消耗更长的时间；
-第三阶段PRM处理中，需要经过控制平面驱动、内核、用户态3个层次进行处理，也需要消耗一定的时间。
-在采用可编程数据平面架构后，对Trigger事件的反馈调节代码可以直接在数据平面的固件代码中完成，
-消除了PARD原有设计中需要经过PRM进行统一处理的时间消耗，实现更快速的反馈响应。
+通过以上的配置修改后，在整个实验过程中，
+增加的3个干扰应用并没有对memcached的性能造成任何的影响，
+始终保持600RPS左右的性能。
+分析整个``trigger$\Rightarrow$action''的过程，
+从触发条件满足到缓存容量划分策略生效总共经历了160ms的时间。
+其中触发逻辑检测到条件满足到向PRM发送中断只需要2个时钟周期，即15ns（控制平面工作在133.33MHz频率）；
+PRM检测到中断发生需要1.6ms，响应动作（向参数表写入新策略）耗时约3ms；
+除此之外的155ms都花费在了PRM执行动作脚本上，包括：
+中断处理、进程创建，脚本执行等，由于FPGA平台和MicroBlaze核心性能的限制，
+无法进一步提高PRM的频率与性能，如果使用真实芯片运行PRM，则可以大幅降低trigger响应时间。
 
-但数据平面处理器的引入也给性能造成影响，第\ref{chap:impl:dp-latency}节将对性能数据平面处理器的性能进行分析。
-
-
-%\subsection{实际应用测试}
+%在PARD体系结构基于表的控制平面设计中，
+%``Trigger$\Rightarrow$Action''机制的反馈时间可以主要分为Trigger事件检测、
+%控制平面网络传送事件消息、PRM处理事件、以及控制平面网络传送Action的参数修改4个部分。
+%其中第一阶段由控制表硬件逻辑完成，可以在有限的时钟周期内完成；
+%第二和第四阶段由于需要使用控制平面网络传送数据，因此其响应时间与控制平面网络的速率相关，
+%在我们目前的原型系统中，由于使用了$I^2C$总线作为控制平面网络，其最高速率为1Mbit/s，
+%对于一个32bit的事件消息以及一组96bit的参数修改消息，至少需要128us完成数据传输，
+%如果需要传输更多的消息则需要消耗更长的时间；
+%第三阶段PRM处理中，需要经过控制平面驱动、内核、用户态3个层次进行处理，也需要消耗一定的时间。
+%在采用可编程数据平面架构后，对Trigger事件的反馈调节代码可以直接在数据平面的固件代码中完成，
+%消除了PARD原有设计中需要经过PRM进行统一处理的时间消耗，实现更快速的反馈响应。
 %
-%使用memcached测试，加入trigger=>action机制，得出与模拟器相同的结果
+%但数据平面处理器的引入也给性能造成影响，第\ref{chap:impl:dp-latency}节将对性能数据平面处理器的性能进行分析。
+
 
 \subsection{数据平面处理器延迟分析}
 \label{chap:impl:dp-latency}
@@ -566,31 +593,33 @@ RPS上出现明显差别。
 %最后我们分析了可编程数据平面架构对PARD体系结构中``Trigger=>Action''机制反馈时间的优化。
 
 与硬件逻辑实现相比，可编程处理器在系统中引入了额外的开销，
-我们通过内存控制器上增加本文所提出的可编程数据平面架构，
-实现与PARD中相同的地址映射功能，来验证该架构对系统延迟的影响。
+本实验通过在内存控制器上增加可编程数据平面处理器，
+验证可编程数据平面架构对系统延迟的影响。
 
-系统延迟的大小与应用和固件功能相关，因此我们选择与硬件实现完全相同的地址映射功能，
-并使用内存带宽测试工具stream和内存键值存储应用memcached对系统的延迟进行评估。
-由于受到FPGA设备的限制，在我们的平台下MicroBlaze软核处理器最高只能工作在250MHz的频率，
-我们选择了100MHz/150MHz/200MHz/250MHz四种不同的频率对系统延迟进行了评估。
+系统延迟的大小与应用和固件功能相关，
+因此固件代码选择与硬件实现完全相同的地址映射功能，
+并使用stream和memcached对系统的延迟进行评估。
+由于受到FPGA设备的限制，MicroBlaze软核处理器最高只能达到250MHz的频率，
+因此实验中选择了100MHz/150MHz/200MHz/250MHz四种不同的频率对系统延迟进行了评估。
 
 \textbf{访存带宽}\quad
 在PARD的控制平面设计中，实现地址映射的控制表并没有引入额外的延迟开销，
 其性能与直接访问内存控制器相同，受到MicroBlaze处理器性能的限制，
-我们在能够得到25.1MB/s的访存带宽（如图\ref{fig:pard-dp-stream}所示）。
+能够得到25.1MB/s的访存带宽（如图\ref{fig:pard-dp-stream}所示）。
 
 由于地址映射功能只需要对请求地址进行操作，而无需对数据进行修改，
-因此我们实现了一个简化版本的数据平面处理器（工作在100MHz频率），
+因此首先实现了一个简化版本的数据平面处理器（工作在100MHz频率），
 该处理器只对地址请求进行处理，数据绕过处理器直接发送到内存控制器。
 在使用该设计后测得的访存带宽是21.5MB/s，与非处理器实现相比并没有特别明显的下降。
 
-为了使数据平面处理器对访存数据也能够进行操作，我们将数据请求也发送到处理器进行处理，
+为了使数据平面处理器对访存数据也能够进行操作，
+将数据请求也发送到处理器进行处理，
 在100MHz频率下测得的访存带宽出现了明显的下降，只有13MB/s。
 进一步提高数据平面处理器的工作频率，带宽基本呈现线性上升，
 在150MHz时能够得到15MB/s的访存带宽；
 在200MHz时，访存带宽提高到了20MB/s；
 而在250MHz时，访存带宽达到了22.5MB/s。
-由于受到FPGA硬件的限制，我们无法实现更高频率的数据平面处理器，
+由于受到FPGA硬件的限制，无法实现更高频率的数据平面处理器，
 但数据平面处理器的功能十分精简，如果使用ASIC工艺，可以得到更高的频率，
 因此其处理器的性能不会成为系统的瓶颈。
 
@@ -623,18 +652,25 @@ PARD的资源开销主要体现在3个方面，分别是：
 用于标签传播的资源开销、
 控制平面的资源开销、
 数据平面的资源开销。
-本节将分别对这三方面的开销进行评估。
+本节将分别对这3个方面的开销进行评估。
 
 \subsection{标签传播资源开销}
 
-\textbf{Cache和XBar在0-8-16-32位应用标签下开销对比}
+PARD的标签机制会在数据通路上产生额外的资源开销，对应到FPGA原型系统，
+该开销主要体现在系统中AXI CrossBar和Cache两部分，
+本节将对标签机制在这两部分中产生的资源开销进行评估。
+为了便于比较，CrossBar和Cache都配置为9个AXI Slave端口和1个AXI Master端口，
+同时评估了4种不同配置下（无标签、8位标签、16位标签和32位标签）的资源开销，
+结果如图\ref{fig:xbar-dsid-overhead}和图\ref{fig:cache-dsid-overhead}所示。
+为了方便对比，图\ref{fig:cache-dsid-overhead}中Block RAM的资源为放大10倍后的结果，
+其原始数据分别为153、157、161和169。
 
-PARD需要增加标签，会在数据通路上产生额外的开销。
-在FPGA原型系统中，使用AXI Interconnect实现总线互连，本节评估标签产生的资源开销，如图\ref{fig:xbar-dsid-overhead}所示。
-该Interconnect配置为：8*slave + 1*master，slice reg。
-在增加16位标签后，在LUT上增加了xx\%，在FF上增加了xx\%，在BRAM上增加了xx\%。
-无标签：LUT 2041 \& FF 895\\
-16位标签：LUT 2181 \& FF 930
+对于CrossBar，不同长度的标签并没有带来特别大的资源占用，
+相比无标签情况，16位标签额外增加了6.86\%的Slice LUT资源以及3.91\%的Slice Register资源。
+对于Cache，由于需要在TagArray中保存Owner-DSid，
+并且在逻辑中增加DSid的比较逻辑，其资源占用比CrossBar有所增加，
+同样相比无标签情况，16位标签额外增加了11.97\%的Slice LUT资源、
+24.36\%的Slice Register资源、以及5.23\%的Block RAM资源。
 
 \begin{figure}[tb]
 \begin{minipage}{0.48\textwidth}
@@ -654,10 +690,11 @@ PARD需要增加标签，会在数据通路上产生额外的开销。
 
 \subsection{控制平面资源开销}
 
-控制平面的资源开销主要体系在表存储、触发逻辑两方面，
-由于控制表中使用了CAM结构，无法使用FPGA中的BRAM资源实现表存储，
-因此需要消耗一定量的LUT和Register资源，不过与全系统占用的资源总量相比资源开销并不大。
-4个控制平面总计占用了全系统LUT总量的3.66\%和Register总量的4.52\%，
+控制平面的资源开销主要体现在表存储、触发逻辑两方面，
+由于控制表使用了CAM结构，无法使用FPGA中的BRAM资源实现表存储，
+因此需要消耗一定量的LUT和Register资源，不过与全系统占用的资源总量相比，
+这部分的资源开销并不大。
+4个控制平面总计占用了全系统LUT用量的3.66\%和Register用量的4.52\%，
 根据控制表的功能、表项设计的不同，不同控制平面的资源开销略有不同，
 具体的资源占用如表\ref{tab:pard-cp-resource}所示。
 
@@ -667,15 +704,15 @@ PARD需要增加标签，会在数据通路上产生额外的开销。
   \label{tab:pard-cp-resource}
   \begin{tabular*}{\linewidth}{rcccccccc}
     \toprule[1.5pt]
-          & \multicolumn{4}{c}{\textbf{Slice LUT}}   & \multicolumn{4}{c}{\textbf{Slice Register}} \\
-          & 参数表 & 状态表 & 触发表 & 小计（\%）    & 参数表 & 状态表 & 触发表 & 小计（\%）       \\
+          & \multicolumn{4}{c}{\textbf{Slice LUT}}  & \multicolumn{4}{c}{\textbf{Slice Register}} \\
+          & 参数表 & 状态表 & 触发表 & 小计（\%）   & 参数表 & 状态表 & 触发表 & 小计（\%）       \\
     \midrule[1pt]
      Core &     94 &    806 &    202 & 1102(0.90\%) &    104 &   1296 &    109 & 1509(1.10\%)      \\
     Cache &     51 &   1030 &    203 & 1284(1.04\%) &     96 &   1874 &    109 & 2079(1.51\%)      \\
       Mem &    291 &    487 &    169 &  947(0.77\%) &    320 &    768 &    109 & 1197(0.87\%)      \\
       I/O &    508 &    487 &    169 & 1164(0.95\%) &    560 &    768 &    109 & 1437(1.04\%)      \\
     \hline
-   全系统 & \multicolumn{4}{c}{122960}               & \multicolumn{4}{c}{137797}                  \\
+   全系统 & \multicolumn{4}{c}{122,960}             & \multicolumn{4}{c}{137,797}                  \\
     \bottomrule[1.5pt]
   \end{tabular*}\\[2pt]
 \end{table}
@@ -684,11 +721,11 @@ PARD需要增加标签，会在数据通路上产生额外的开销。
 
 可编程数据平面的资源开销主要在处理器逻辑及其使用的scratchpad memory两个方面。
 在通过配置精简后，MicroBlaze处理器所占用的资源量大大减少，
-其Slice（LUT和FF）占用只有完整配置的50\%左右，
+其Slice（LUT和Register）占用只有完整配置的50\%左右，
 scratchpad memory的容量由固件代码的大小决定，
-当前的实现中我们为其保留了32KB的容量，在FPGA中占用了8个RAMB36资源。
+当前的实现中将其配置为32KB，在FPGA中占用了8个RAMB36资源。
 原型系统中主要的硬件部件与可编程数据平面占用的FPGA资源如表\ref{tab:pard-dp-resource}所示。
-可以看到可编程数据平面在只占用有限的FPGA资源下，为硬件增加了更为灵活的可编程能力。
+可编程数据平面在只占用有限的FPGA资源下，为硬件增加了更为灵活的可编程能力。
 
 \begin{table}[htb]
   \centering
@@ -711,6 +748,14 @@ scratchpad memory的容量由固件代码的大小决定，
 
 
 \section{小结}
+
+本章对前述章节中资源管理可编程体系结构PARD的设计进行了原型系统实现，包括模拟器与FPGA原型两部分。
+主要对FPGA原型系统中可编程控制平面和可编程数据平面的功能进行验证，并评估其性能与资源开销。
+实验结果表明，该原型系统能够实现本文所提出的全部功能，包括：
+1）无软件Hypervisor支持的全硬件虚拟化；2）应用区分化服务；3）性能隔离。
+PARD体系结构的扩展并不会对系统性能造成影响，也不会增加过多的资源开销；
+在此基础上，能够实现应用的区分化服务、细粒度的资源管理、以及性能隔离，
+能够适应于数据中心这种复杂多变的共享场景中，实现应用服务质量与资源利用率的平衡。
 
 
 \begin{figure}[htb]
