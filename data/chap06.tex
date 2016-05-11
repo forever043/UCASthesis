@@ -192,11 +192,13 @@ master根据用户设定的策略为每个framework分配资源，例如公平�
 调度器从中选择所需的资源，并将调度执行的任务描述发送给master，由其分发到对应的slave节点执行。
 
 %\textbf{mesos如何实现高可用、高可靠、高利用率以及快速部署？}
-mesos只提供了最基本的资源管理与调度功能，
-通过跨节点的细粒度资源管理与调度，实现了高利用率；
-并提供基于进程或容器的快速应用部署。
-通过自定义framework可以很容易的扩展mesos，
-如Marathon\cite{}在mesos的基础上实现了应用自动扩容与出错重启，实现了高可用与高可靠。
+mesos提供了跨节点的细粒度资源管理与作业调度，如图\ref{fig:mesos-arch}所示，
+通过基于进程或容器的快速应用部署，将不同资源需要的应用调度到同一个节点，实现高资源利用率。
+mesos在ZooKeeper的辅助下，通过多master选举的方式实现master节点的高可用，
+对于其他的组件（如调度器与执行器），
+mesos也提供了相应的方案以实现其高可用\cite{mesos-high-available-framework}。
+一些基于mesos的开源系统，如Marathon\cite{marathon}、Aurora\cite{Aurora}等，
+在mesos功能的基础上，实现了应用自动扩容与出错重启，实现了高可用与高可靠。
 
 
 \subsection{节点内资源管理架构}
@@ -213,7 +215,7 @@ PARD体系结构采用带外管理的方式管理节点内的资源，其PRM的�
 
 The Intelligent Platform Management Interface (IPMI) is a set of computer interface specifications for an autonomous computer subsystem that provides management and monitoring capabilities independently of the host system's CPU, firmware (BIOS or UEFI) and operating system. IPMI defines a set of interfaces used by system administrators for out-of-band management of computer systems and monitoring of their operation. For example, IPMI provides a way to manage a computer that may be powered off or otherwise unresponsive by using a network connection to the hardware rather than to an operating system or login shell
 
-\begin{figure}[tbh]
+\begin{figure}[tb]
   \centering
   \includegraphics[width=0.95\textwidth]{swstk/ipmi-schem}
   \caption{IPMI结构框图}
@@ -223,21 +225,19 @@ The Intelligent Platform Management Interface (IPMI) is a set of computer interf
 IPMI的结构如图\ref{fig:ipmi-schem}所示，其中主要包含以下几个模块：
 
 \textbf{Baseboard Management Controller (BMC)}\quad
-A micro-controller (BMC) is the heart of the IPMI architecture. The tasks of the BMC includes:
-interfacing between the system management software and the hardware being used (through which the BMC has been connected using IPMB and ICMB)
-monitoring independently
-logging events independently
-controlling recovery
+微处理器BMC是整个IPMI架构的核心，它提供系统管理软件与硬件交互的接口，
+这些硬件通过IPMB与ICMB总线连接到BMC（见下文），
+实现系统的监控、控制与日志记录。
 
 \textbf{Intelligent Platform Management Bus (IPMB)}\quad
-IPMI allows for the extension of the BMC by additional Management Controllers (MCs) through the application of the IPMB standard.
-IPMB is an I²C based serial bus, which makes connection with various boards inside of one chassis possible. It is used for communication to and between the management controllers (MCs). Additional MCs are often designated Satellite Controllers.
+IPMI使用IPMB标准实现BMC控制功能的扩展，IPMB是一个基于$I^2C$的串行总线，
+用于节点内连接实现BMC扩展的卫星控制器（satellite controller），
+并提供它们之间的通信功能。
 
 \textbf{Intelligent Chassis Management Bus (ICMB)}\quad
-ICMB provides a standardized interface for communication and control between chasses.
+在具有多BMC的服务器上，ICMB为这些BMC提供统一的通信与控制接口，实现统一管理。
 
 PRM在其基础上通过控制平面与控制平面网络，将资源管理功能也增加到其中，PRM具体架构在第\ref{chap:prm:arch}节将进行详细介绍。
-
 
 \section{软件栈平台与架构}
 \label{chap:prm:arch}
@@ -514,22 +514,17 @@ PARD实现PaaS的方式是通过类似于unikernel/LibOS的方式，
 %    -- 增加资源抽象属性：CPU/Mem => Cache/BW/QoS-Level/etc.
 %    -- 增加调度考查
 
+
 \section{小结}
 
-
-应用负载具有波动性，对硬件资源的需求会发生变化，需要提供一种动态调整应用资源分配的方案。
-
-有三个层次，分别：
-(1)节点内不同硬件资源的协同管理；
-(2)节点内应用调度与资源协同管理；
-(3)节点间协同管理；
-
-
-PRM软件接口，
-
-- 与mesos集成，实现硬件支持的容器
-
-- 与OpenStack集成，实现IaaS平台
-
-- 与SDN集成，实现网络中心的系统
+计算机软硬件需要协同工作，PARD体系结构通过软件可编程的方式为上层软件提供了更多可控制的能力，
+这包括：应用区分、细粒度资源管理、应用区分的实时性能监控以及资源的反馈调节机制，
+本章设计了一种节点内资源管理抽象，实现了以上特性的软硬件接口。
+PARD提供的带外管理特性，使得系统管理与应用分离，实现单独控制；
+其全硬件支持的虚拟化（逻辑域）特性，降低了软件开销与成本。
+PARD体系结构可以很容易的集成到IaaS或PaaS模式的云计算平台下，
+本章给出了一种基于IaaS实现PaaS的方法。
+由于单节点可控制能力的增加，为数据中心管理系统提出了新的挑战，
+这主要由于可管理的资源种类增加、以及性能相关的调度因素。
+如何在PARD这样的体系结构下设计出更灵活的作业调度与资源管理系统是未来软件设计的主要目标。
 

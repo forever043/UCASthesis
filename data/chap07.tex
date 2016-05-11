@@ -18,22 +18,30 @@
 \section{PARD模拟器}
 \label{chap:impl:simulator}
 
-As shown in Table \ref{tab:pard-sim-setup}
-PARD-gem5 is a cycle-accurate simulator that is able to simulate OoO X86 systems.
-In particular, we added tag registers in CPU cores,
-implemented LLC, memory controller, I/O bridge and
-IDE control planes.
-Table \ref{tab:pard-sim-cp} illustrates major
-content of the three tables of the LLC, memory and IDE control planes.
-We also implemented the PRM that is also based on an X86 processor running
-at 100MHz, 16MB DRAM, 32MB Flash, one Ethernet adaptor and four control plane adaptors (CPAs).
-The firmware running on the PRM is based on a tailored
-Linux kernel 2.6.28.4 with Busybox \cite{busybox} toolkit.
+PARD模拟器是基于gem5\cite{binkert_gem5_2011}开发的时钟精确（cycle-accurate）
+体系结构模拟器\footnote{PARD-gem5模拟器已在LGPL协议下开源，地址https://github.com/fsg-ict/PARD-gem5}，
+它使用x86指令集与Classic Memory内存模型，
+能够支持atomic、timing-simple和detail三种仿真模型。
+它能够模拟1台四核x86服务器，具体配置参数如表\ref{tab:pard-sim-setup}所示，
+主要包括：
+处理器核使用乱序四发射，工作频率为2GHz，具有分离的指令与数据缓存，容量均为64KB；
+4个处理器核共享4MB的末级缓存（16路组相连）和1个DDR3内存控制器，内存容量为8GB；
+在I/O方面，服务器提供4个IDE控制器，每个控制器上挂载2个磁盘。
 
-With these efforts, PARD-gem5 is able to simulate a PARD server that can
-be partitioned into multiple LDoms. Each LDom can run unmodified Gentoo Linux
-with kernel 2.6.28.4 and memcached 1.4.17 \cite{memcached} of CloudSuite \cite{Ferdman:2012:cloudsuite} etc.
+模拟器在处理器核上增加了标签寄存器，并扩展了模拟器中的请求（packet）类型，
+实现应用标签的传播。
+在处理器末级缓存、内存控制器与IDE控制器上增加了可编程控制平面，
+并对硬件资源数据平面所提供的功能进行管理，
+表\ref{tab:pard-sim-cp}给出了3个控制平面中控制表的设计。
+该模拟器中同时模拟了基于x86体系结构的PRM，其主要配置包括：
+100MHz的x86处理器核、16MB内存、32MB存储、串口和以太网控制器，
+以及用于控制平面适配器。
+控制平面网络基于gem5模拟器中总线逻辑实现，连接以上3个控制平面到PRM的控制平面适配器。
+PRM上运行经过裁剪的Linux系统，基于内核版本2.6.28.4和Busybox\cite{busybox}实现。
 
+该模拟器能够模拟PARD体系结构的关键特性，实现将一台PARD服务器划分为最多4个逻辑域，
+并在其中运行未经修改的Gentoo Linux（内核版本2.6.28.4），
+以及CloudSuite\cite{Ferdman:2012:cloudsuite}的部分组件，如memcached\cite{memcached}。
 
 \begin{table}[ht]
   \centering
@@ -62,8 +70,8 @@ with kernel 2.6.28.4 and memcached 1.4.17 \cite{memcached} of CloudSuite \cite{F
       \hline
       Server OS            & Gentoo Linux with kernel 2.6.28.4 \\
       \hline
-      Workloads            & Memcached \cite{memcached}, SPECCPU 2006 \cite{cpu2006} \\
-                           & Microbenchmark: CacheFlush \& DiskCopy \\
+      Workloads            & memcached \cite{memcached}, SPEC-CPU 2006 \cite{cpu2006} \\
+                           & MicroBenchmark: CacheFlush \& DiskCopy \\
       \bottomrule[1.5pt]
     \end{tabular*}\\[2pt]
   \end{minipage}
@@ -92,7 +100,18 @@ with kernel 2.6.28.4 and memcached 1.4.17 \cite{memcached} of CloudSuite \cite{F
   \end{minipage}
 \end{table}
 
+
 \section{FPGA原型系统}
+
+模拟器在体系结构研究中有着不可或缺的作用，但它也有十分明显的缺点，
+即模拟速度过慢，性能无法支持真实应用的运行。
+PARD模拟器也面临这样的问题：
+使用该模拟器运行典型的数据中心应用memcached，
+其3秒的执行需要超过30个小时的模拟时间。
+这使得该平台只能作为本文技术点验证的工具，
+而全系统的功能验证，需要一个性能更高的实验平台。
+基于以上动机，本文同时实现了PARD体系结构的FPGA原型系统，
+用于全系统功能的验证，并对系统资源开销的精确评估。
 
 \subsection{基础系统选择}
 
@@ -104,7 +123,7 @@ PARD对基础系统有以下需求：
   \item 独立系统，不依靠任何辅助设施即可运行；
   \item 丰富的I/O设备支持，支持Xilinx VC709开发板所提供的外设，如以太网和PCI-Express；
   \item 能够运行Linux操作系统；
-  \item 频率/性能足够运行常见Benchmark应用，如SpecCPU、PARSEC等）；
+  \item 频率/性能足够运行常见Benchmark应用，如SPECCPU、PARSEC等；
   \item 可以运行典型的数据中心应用，如memcached、httpd等；
   \item 具备完整的软件开发环境；
 \end{enumerate}
@@ -158,12 +177,12 @@ MicroBlaze同时还提供了硬件调试接口，可以通过JTAG对其进行调
 
 PARD原型系统架构如图\ref{fig:pard-arch-impl}所示，
 该系统由处理器子系统、I/O子系统、PRM SoC三部分组成。
-其中处理器子系统包含四个处理器核心、共享缓存和内存控制器；
-I/O子系统中包含四个串口控制器、两个以太网控制器和一个PCI Express根逻辑（RootComplex），
+其中处理器子系统包含4个处理器核心、共享缓存和内存控制器；
+I/O子系统中包含4个串口控制器、2个以太网控制器和1个PCI Express根逻辑（RootComplex），
 系统中所有的数据通路使用AXI4总线连接；
 PRM同样是基于MicroBlaze的SoC系统，对外提供串口与SFP以太网接口，
 同时通过内部串口与I/O子系统相连，用于接收I/O子系统的串口输出，
-使用I2C总线作为控制平面网络的数据链路层，连接到系统中的四个控制平面：
+使用I2C总线作为控制平面网络的数据链路层，连接到系统中的4个控制平面：
 处理器核控制平面CoreCP、共享缓存控制平面CacheCP、内存控制器控制平面MemCP和
 I/O子系统控制平面I/OCP。
 
@@ -179,13 +198,13 @@ I/O子系统控制平面I/OCP。
 其内部结构如图\ref{fig:pard-core-impl}所示，
 其中包含MicroBlaze软核、中断控制器和时钟模块，
 该模块从外部输入时钟、复位和中断信号，
-通过三个AXI4接口（IC指令缓存端口、DC数据缓存端口和DP外设端口）与外部交换数据。
+通过3个AXI4接口（IC指令缓存端口、DC数据缓存端口和DP外设端口）与外部交换数据。
 AXI4总线协议中使用独立的通道实现读写请求、数据与响应，
 其中读写请求中包含用户自定义信号，本文使用该信号在系统中传播应用标签。
 由于MicroBlaze并没有开放源代码，处理器核的请求标记工作需要在核外进行：
 首先在核外增加了一个标签寄存器，CoreCP连接到该寄存器，并可以对其内容进行修改；
-在IC/DC/DP三个端口外分别增加三个标签模块，
-用于将标签寄存器的值附加到AXI4总线AR/AW两个通道的USER信号中，完成请求标记。
+在IC/DC/DP 3个端口外分别增加3个标签模块，
+用于将标签寄存器的值附加到AXI4总线AR/AW 2个通道的USER信号中，完成请求标记。
 
 % 增加共享缓存模块：支持16路、实现标签传播、实现划分
 Xilinx为AXI4总线提供了一个缓存功能的IP核SystemCache\cite{pg118-system-cache}，
@@ -195,9 +214,9 @@ Xilinx为AXI4总线提供了一个缓存功能的IP核SystemCache\cite{pg118-sys
 同时修改其默认LRU替换策略，使其支持按路划分功能，
 并通过CacheCP对共享缓存的行为进行控制（参见第\ref{chap:impl:cachecp}节）。
 % 实现的多核
-该Cache模块提供MicroBlaze专用接口连接四个处理器核，
+该Cache模块提供MicroBlaze专用接口连接4个处理器核，
 同时还提供了通用AXI Master接口连接I/O子系统的DMA通道。
-内存控制器控制平面提供了地址映射功能，实现四个处理器核的内存资源划分，
+内存控制器控制平面提供了地址映射功能，实现4个处理器核的内存资源划分，
 第\ref{chap:impl:migcp}节将详细讨论内存控制器控制平面的实现。
 
 % I/O子系统结构
@@ -209,7 +228,7 @@ PARD的I/O子系统内部结构如图\ref{fig:pard-io-impl}所示，
 所有设备的中断信号在内部进行编码，经过I/O控制平面进行重映射处理后，发送给对应的处理器核。
 I/O子系统控制平面的设计将在第\ref{chap:impl:iocp}节进行讨论。
 
-\begin{figure}[b]
+\begin{figure}[tb]
 \begin{minipage}{0.48\textwidth}
   \centering
   \includegraphics[width=\textwidth]{impl/pard-core-impl}
@@ -227,10 +246,10 @@ I/O子系统控制平面的设计将在第\ref{chap:impl:iocp}节进行讨论。
 % 原型的照片
 本文使用Xilinx Virtex-7 FPGA（型号xc7vx690tffg1761-2）
 在VC709平台上实现了上述PARD原型系统，如图\ref{fig:pard-fpga-board}所示。
-该原型系统对外呈现三类接口：一个RS232串口，与PRM的串口相连；
-三个SFP接口，其中两个连接到I/O子系统，另外一个与PRM的以太网接口相连；
-一个PCI-E Gen3 x4接口，连接到I/O子系统，可以连接兼容的PCI-E设备，
-在本例中在该接口连接了一块Intel PCI-E以太网卡（芯片型号82575）。
+该原型系统对外呈现3类接口：1个RS232串口，与PRM的串口相连；
+3个SFP接口，其中2个连接到I/O子系统，另外1个与PRM的以太网接口相连；
+1个PCI-E Gen3 x4接口，连接到I/O子系统，可以连接兼容的PCI-E设备，
+在本例中在该接口连接了1个Intel PCI-E以太网卡（芯片型号82575）。
 
 \begin{figure}[tb]
   \centering
@@ -258,6 +277,8 @@ I/O子系统控制平面的设计将在第\ref{chap:impl:iocp}节进行讨论。
 
 
 LDom的内核、rootfs和device-tree（完整的）
+
+CDMA与内核/device-tree处理，对比模拟器实现
 
 
 \section{控制平面实现}
@@ -299,7 +320,7 @@ of the LLC control plane is not in critical pathes.
 \subsection{I/O子系统控制平面}
 \label{chap:impl:iocp}
 
-I/O子系统控制平面主要处理三个事件：
+I/O子系统控制平面主要处理3个事件：
 DP口请求地址重映射、
 DMA口请求打标签、
 中断重映射。
@@ -316,12 +337,12 @@ DP口请求地址重映射与内存控制器控制平面的实现相同，不同
       \toprule[1.5pt]
       \textbf{地址范围} & \textbf{硬件} & \textbf{用途} \\
       \midrule[1pt]
-      \textit{0x48000000 - 0x4800FFFF} & Ethernet \#0       & 控制寄存器    \\
-      \textit{0x48100000 - 0x4810FFFF} & Ethernet DMA \#0   & DMA控制寄存器 \\
-      \textit{0x48200000 - 0x4820FFFF} & Ethernet \#1       & 控制寄存器    \\
-      \textit{0x48300000 - 0x4830FFFF} & Ethernet DMA \#1   & DMA控制寄存器 \\
-      \textit{0x60000000 - 0x6FFFFFFF} & PCI-E Root Complex & 控制寄存器    \\
-      \textit{0x70000000 - 0x7FFFFFFF} & PCI-E Root Complex & PCI-E地址空间 \\
+      0x48000000 - 0x4800FFFF & Ethernet \#0       & 控制寄存器    \\
+      0x48100000 - 0x4810FFFF & Ethernet DMA \#0   & DMA控制寄存器 \\
+      0x48040000 - 0x4804FFFF & Ethernet \#1       & 控制寄存器    \\
+      0x48110000 - 0x4811FFFF & Ethernet DMA \#1   & DMA控制寄存器 \\
+      0x60000000 - 0x6FFFFFFF & PCI-E Root Complex & 控制寄存器    \\
+      0x70000000 - 0x7FFFFFFF & PCI-E Root Complex & PCI-E地址空间 \\
       \bottomrule[1.5pt]
     \end{tabular*}\\[2pt]
   \end{minipage}
@@ -386,7 +407,7 @@ DP口请求地址重映射与内存控制器控制平面的实现相同，不同
 在PARD中使用逻辑域的抽象，可以为不同的逻辑域分配不同的资源，
 本节将测试PARD如何为相同的应用分配不同的资源，以实现区分化服务的功能。
 在本节的测试中将同时运行两个逻辑域，其配置完全相同，都包含一个处理器核和1GB的内存，
-在其中运行相同的应用，通过cacehcp调整其缓存容量的分配，实现区分化服务。
+在其中运行相同的应用，通过Cache控制平面调整其缓存容量的分配，实现区分化服务。
 
 图\ref{fig:diffserv-mcf-ipc-hitrate}给出了mcf的测试结果，在本实验中两个逻辑域分别分配了4路和12路的缓存容量，
 从总执行时间上可以看到两者存在明显的差别，
@@ -398,34 +419,7 @@ DP口请求地址重映射与内存控制器控制平面的实现相同，不同
   \label{fig:diffserv-mcf-ipc-hitrate}
 \end{figure}
 
-图\ref{fig:diffserv-memcached-rps}给出了memcached的测试结果，
-RPS上出现明显差别。
-在12路时，LLC命中率为 0.981943。
-在4路时，LLC命中率为0.771881。
-
-为了评估在内存控制器控制平面提供的区分化服务功能，在本实验中关闭了Cache模块，
-让处理器的访存请求直接发送到内存控制器。
-使用stream测试单个逻辑域的访存带宽为19.8MB/s，以此作为对比的基线。
-在测试过程中，我们发现内存控制器的性能要远高于四个MicroBlaze处理器同时访存的需求，
-为了进行本实验，需要对原型系统进行修改，使内存控制器发生资源竞争，
-具体做法如下：将第四个处理器核更换为一个访存负载发生器，由它持续向内存控制器发送访存请求，
-为了保证系统正确运行，该负载发生器只生成读请求，其余三个处理器核分别运行逻辑域，
-并在其中使用stream发送读请求测试访存带宽。
-在内存控制器控制平面为这三个逻辑域设置不同的优先级，同时为负载发生器设置为低优先级。
-图\ref{fig:diffserv-stream-generator}给出了评测结果，
-可以看到三个逻辑域的访存性能有明显的区分，相比于基线分别有89\%、52\%和36\%的带宽下降，
-而负载发生器本身的访存带宽也从268MB/s下降到100MB/s。
-目前内存控制器调度策略只实现了三个优先级，无法对每个逻辑域带宽进行精确控制，
-后续可以对策略进行修改，以实现基于目标带宽的调度策略。
-
-%\begin{figure}[htb]
-%  \centering
-%  \includegraphics[width=0.5\textwidth]{impl/diffserv-stream-generator}
-%  \caption{区分化服务：访存优先级}
-%  \label{fig:diffserv-stream-generator}
-%\end{figure}
-
-\begin{figure}[htb]
+\begin{figure}[tb]
 \begin{minipage}[b]{0.48\textwidth}
   \centering
   \includegraphics[width=\textwidth]{impl/diffserv-memcached-rps}
@@ -441,15 +435,43 @@ RPS上出现明显差别。
 \end{figure}
 
 
+图\ref{fig:diffserv-memcached-rps}给出了memcached的测试结果，
+RPS上出现明显差别。
+在12路时，LLC命中率为 0.981943。
+在4路时，LLC命中率为0.771881。
+
+为了评估在内存控制器控制平面提供的区分化服务功能，在本实验中关闭了Cache模块，
+让处理器的访存请求直接发送到内存控制器。
+使用stream测试单个逻辑域的访存带宽为19.8MB/s，以此作为对比的基线。
+在测试过程中，我们发现内存控制器的性能要远高于4个MicroBlaze处理器同时访存的需求，
+为了进行本实验，需要对原型系统进行修改，使内存控制器发生资源竞争，
+具体做法如下：将第4个处理器核更换为一个访存负载发生器，由它持续向内存控制器发送访存请求，
+为了保证系统正确运行，该负载发生器只生成读请求，其余3个处理器核分别运行逻辑域，
+并在其中使用stream发送读请求测试访存带宽。
+在内存控制器控制平面为这3个逻辑域设置不同的优先级，同时为负载发生器设置为低优先级。
+图\ref{fig:diffserv-stream-generator}给出了评测结果，
+可以看到3个逻辑域的访存性能有明显的区分，相比于基线分别有89\%、52\%和36\%的带宽下降，
+而负载发生器本身的访存带宽也从268MB/s下降到100MB/s。
+目前内存控制器调度策略只实现了3个优先级，无法对每个逻辑域带宽进行精确控制，
+后续可以对策略进行修改，以实现基于目标带宽的调度策略。
+
+%\begin{figure}[htb]
+%  \centering
+%  \includegraphics[width=0.5\textwidth]{impl/diffserv-stream-generator}
+%  \caption{区分化服务：访存优先级}
+%  \label{fig:diffserv-stream-generator}
+%\end{figure}
+
+
 \subsection{性能隔离}
 
-一个LDom运行关键应用（如mcf或stream），另外三个LDom进行干扰，
+一个LDom运行关键应用（如mcf或stream），另外3个LDom进行干扰，
  - 通过cache划分，实现性能隔离；
  - 在mig前增加干扰，保证关键应用性能不受影响
 
 图\ref{fig:isolation-mcf-ipc-hitrate}给了隔离测试结果，LDom\#0运行mcf，
-另外三个逻辑域运行干扰应用，单独运行时独占所有16路的Cache，执行时间大约为150秒；
-与三个干扰应用同时运行时，执行时间延长到222秒，大约增加了48\%；
+另外3个逻辑域运行干扰应用，单独运行时独占所有16路的Cache，执行时间大约为150秒；
+与3个干扰应用同时运行时，执行时间延长到222秒，大约增加了48\%；
 使用隔离的方式，将12路Cache分配给mcf，性能恢复，只增加了7\%的执行时间。
 
 \begin{figure}[tb]
@@ -463,7 +485,7 @@ RPS上出现明显差别。
 \subsection{策略生效时间}
 \label{chap:impl:trigger-latency}
 
-一个LDom运行mcf，另外三个运行干扰；
+1个LDom运行mcf，另外3个运行干扰；
 写一个trigger=>action，通过ipc/missrate控制waymask，
 测试生效时间：
  - 应用性能变化 （理论上没有变化）
@@ -472,13 +494,13 @@ RPS上出现明显差别。
 
 在PARD体系结构基于表的控制平面设计中，
 ``Trigger$\Rightarrow$Action''机制的反馈时间可以主要分为Trigger事件检测、
-控制平面网络传送事件消息、PRM处理事件、以及控制平面网络传送Action的参数修改四个部分。
+控制平面网络传送事件消息、PRM处理事件、以及控制平面网络传送Action的参数修改4个部分。
 其中第一阶段由控制表硬件逻辑完成，可以在有限的时钟周期内完成；
 第二和第四阶段由于需要使用控制平面网络传送数据，因此其响应时间与控制平面网络的速率相关，
 在我们目前的原型系统中，由于使用了I2C总线作为控制平面网络，其最高速率为1Mbit/s，
 对于一个32bit的事件消息以及一组96bit的参数修改消息，至少需要128us完成数据传输，
 如果需要传输更多的消息则需要消耗更长的时间；
-第三阶段PRM处理中，需要经过控制平面驱动、内核、用户态三个层次进行处理，也需要消耗一定的时间。
+第三阶段PRM处理中，需要经过控制平面驱动、内核、用户态3个层次进行处理，也需要消耗一定的时间。
 在采用可编程数据平面架构后，对Trigger事件的反馈调节代码可以直接在数据平面的固件代码中完成，
 消除了PARD原有设计中需要经过PRM进行统一处理的时间消耗，实现更快速的反馈响应。
 
@@ -553,7 +575,7 @@ RPS上出现明显差别。
 
 \section{资源开销评估}
 
-PARD的资源开销主要体现在三个方面，分别是：
+PARD的资源开销主要体现在3个方面，分别是：
 用于标签传播的资源开销、
 控制平面的资源开销、
 数据平面的资源开销。
@@ -561,19 +583,58 @@ PARD的资源开销主要体现在三个方面，分别是：
 
 \subsection{标签传播资源开销}
 
+\textbf{Cache和XBar在0-8-16-32位应用标签下开销对比}
+
 PARD需要增加标签，会在数据通路上产生额外的开销。
-在FPGA原型系统中，使用AXI Interconnect实现总线互连，本节评估标签产生的资源开销，如图所示。
+在FPGA原型系统中，使用AXI Interconnect实现总线互连，本节评估标签产生的资源开销，如图\ref{fig:xbar-dsid-overhead}所示。
 该Interconnect配置为：8*slave + 1*master，slice reg。
 在增加16位标签后，在LUT上增加了xx\%，在FF上增加了xx\%，在BRAM上增加了xx\%。
 无标签：LUT 2041 \& FF 895\\
 16位标签：LUT 2181 \& FF 930
 
+\begin{figure}[tb]
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{impl/xbar-dsid-overhead}
+  \caption{CrossBar标签开销}
+  \label{fig:xbar-dsid-overhead}
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{impl/cache-dsid-overhead}
+  \caption{Cache标签开销}
+  \label{fig:cache-dsid-overhead}
+\end{minipage}
+\end{figure}
+
 
 \subsection{控制平面资源开销}
 
 控制平面的资源开销主要体系在表存储、触发逻辑两方面，
-使用CAM结构，因此需要消耗大量的LUT和FF资源。具体如表\ref{tab:pard-cp-resource}所示。
+由于控制表中使用了CAM结构，无法使用FPGA中的BRAM资源实现表存储，
+因此需要消耗一定量的LUT和Register资源，不过与全系统占用的资源总量相比资源开销并不大。
+4个控制平面总计占用了全系统LUT总量的3.66\%和Register总量的4.52\%，
+根据控制表的功能、表项设计的不同，不同控制平面的资源开销略有不同，
+具体的资源占用如表\ref{tab:pard-cp-resource}所示。
 
+\begin{table}[htb]
+  \centering
+  \caption{控制平面资源占用情况（xc7vx690t设备）}
+  \label{tab:pard-cp-resource}
+  \begin{tabular*}{\linewidth}{rcccccccc}
+    \toprule[1.5pt]
+          & \multicolumn{4}{c}{\textbf{Slice LUT}}   & \multicolumn{4}{c}{\textbf{Slice Register}} \\
+          & 参数表 & 状态表 & 触发表 & 小计（\%）    & 参数表 & 状态表 & 触发表 & 小计（\%）       \\
+    \midrule[1pt]
+     Core &     94 &    806 &    202 & 1102(0.90\%) &    104 &   1296 &    109 & 1509(1.10\%)      \\
+    Cache &     51 &   1030 &    203 & 1284(1.04\%) &     96 &   1874 &    109 & 2079(1.51\%)      \\
+      Mem &    291 &    487 &    169 &  947(0.77\%) &    320 &    768 &    109 & 1197(0.87\%)      \\
+      I/O &    508 &    487 &    169 & 1164(0.95\%) &    560 &    768 &    109 & 1437(1.04\%)      \\
+    \hline
+   全系统 & \multicolumn{4}{c}{122960}               & \multicolumn{4}{c}{137797}                  \\
+    \bottomrule[1.5pt]
+  \end{tabular*}\\[2pt]
+\end{table}
 
 \subsection{数据平面资源开销}
 
