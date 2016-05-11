@@ -62,7 +62,7 @@ PARD体系结构基于``控制平面''和``数据平面''的资源管理抽象�
 %policies that respond to these triggers with low-level
 %resource reallocation defined using a uniform
 %programming interface.
-本文所提出的``trigger$\Rightarrow$action''机制为计算机提供了可编程的QoS决策支持。
+本文所提出的``\emph{trigger$\Rightarrow$action}''机制为计算机提供了可编程的QoS决策支持。
 利用控制平面实时资源监控的特性，管理员可以在不同的性能指标上设定触发条件
 （如，处理器末级缓存缺失率超过某一指定范围），并得到实时的通知，
 这使得应用控制理论实现资源的动态调整成为可能。
@@ -102,7 +102,7 @@ PARD是在该方向上的尝试，并提供了一种实现硬件资源管理与�
 未来还需要大量的工作来完善该体系结构，这些问题包括但不限于：
 
 \begin{itemize}[nolistsep]
-  \item 如何将应用的QoS需求转换为高效的``trigger$\Rightarrow$action''规则？
+  \item 如何将应用的QoS需求转换为高效的``\emph{trigger$\Rightarrow$action}''规则？
   \item 如何利用编译器自动生成trigger规则？
   \item 如何在PARD服务器上直接运行操作系统，并支持进程级的区分化服务？
   \item 如何实现比进程级更为细粒度的区分化服务，如线程级甚至是C++/Java对象级的区分化服务？
@@ -115,7 +115,7 @@ PARD是在该方向上的尝试，并提供了一种实现硬件资源管理与�
   \item 如何为PARD资源管理提供一种编程模型，充分利用PARD提供的特性，并简化资源管理策略固件应用的编写？
 \end{itemize}
 
-To facilitate further optimization and exploration, we
-release the PARD-gem5 simulator that is available at
-https://github.com/fsg-ict/PARD-gem5.
+%To facilitate further optimization and exploration, we
+%release the PARD-gem5 simulator that is available at
+%https://github.com/fsg-ict/PARD-gem5.
 

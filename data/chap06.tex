@@ -42,9 +42,11 @@
 对应的系统软件栈（e.g. hypervisor，操作系统，数据中心管理系统）需要如何适应这种变化。
 具体来说，即如何在PARD体系结构下设计系统软件栈，以实现高效的数据中心管理。
 本章内容安排如下：
-首先以mesos为例，介绍数据中心管理系统
-然后介绍基于PARD体系结构的数据中心架构，之后具体介绍单节点PARD软件栈构成；
-并以mesos为例，讨论如何将PARD集成到数据中心管理架构中。
+首先介绍数据中心软件栈背景，并对其需求进行分析；
+然后分别以Mesos和IPMI为例，介绍节点间与节点内资源管理系统的架构；
+之后介绍基于PARD体系结构的数据中心软件栈设计，
+包括节点内与节点间（数据中心）两部分，
+并具体讨论将PARD体系结构集成到Mesos系统中所需要解决的问题与挑战。
 
 %实现高效资源管理需要软硬件协同设计。
 %PARD体系结构已经实现将硬件资源信息暴露给上层软件，
@@ -89,7 +91,7 @@ YARN\cite{YARN}被广泛的应用在工业界。
 %experience in operating Borg in Google's production environments, Borg developers
 %found that after using a Linux cgroup-based resource container, low-level
 %hardware interference still happens \cite{borg:2015}.
-%Thus, in Dick Sites' recent talk \cite{}, he argued that better hardware
+%Thus, in Dick Sites' recent talk \cite{Dick:2015}, he argued that better hardware
 %support isolation is needed.
 正如本文前几章所分析的，多个应用在共享软硬件资源上竞争会对应用造成不可预测的性能下降，
 特别是延迟敏感型应用，这种性能下降更为明显。
@@ -179,26 +181,26 @@ PARD服务器与传统服务器主要的区别在于其提供了细粒度的资�
 如上文所述，数据中心管理系统需要为数据中心提供高可用、高可靠、高利用率以及快速部署支持。
 以Apache Mesos\cite{Hindman:2011:Mesos}为例，其架构如图\ref{fig:mesos-arch}所示，
 它通过集中式的master节点控制运行在服务器内的slave守护进程实现数据中心资源管理。
-master负责管理所有的资源，当slave注册到mesos集群时，将其提供的资源发送到master进行统一管理，
+master负责管理所有的资源，当slave注册到Mesos集群时，将其提供的资源发送到master进行统一管理，
 这些资源主要指CPU、内存、磁盘，除此之外还包括其他用户自定义类型的资源，
 以资源列表的形式发送给master，如：
 
 \textit{<slave ID, resource1:amount1, resource2:amount2, ...>}
 
-mesos为用户提供framework抽象，主要包含两个部分：调度器（scheduler）与执行器（executor）。
+Mesos为用户提供framework抽象，主要包含两个部分：调度器（scheduler）与执行器（executor）。
 其中调度器与master节点交互并获取资源，执行器在slave节点上运行，执行由调度器发送的任务（task）。
 master根据用户设定的策略为每个framework分配资源，例如公平划分（fair sharing）或基于优先级的策略（strict priority）。
 当master决定分配多少资源给framework后，将资源列表发送到framework的调度器，
 调度器从中选择所需的资源，并将调度执行的任务描述发送给master，由其分发到对应的slave节点执行。
 
-%\textbf{mesos如何实现高可用、高可靠、高利用率以及快速部署？}
-mesos提供了跨节点的细粒度资源管理与作业调度，如图\ref{fig:mesos-arch}所示，
+%\textbf{Mesos如何实现高可用、高可靠、高利用率以及快速部署？}
+Mesos提供了跨节点的细粒度资源管理与作业调度，如图\ref{fig:mesos-arch}所示，
 通过基于进程或容器的快速应用部署，将不同资源需要的应用调度到同一个节点，实现高资源利用率。
-mesos在ZooKeeper的辅助下，通过多master选举的方式实现master节点的高可用，
+Mesos在ZooKeeper的辅助下，通过多master选举的方式实现master节点的高可用，
 对于其他的组件（如调度器与执行器），
-mesos也提供了相应的方案以实现其高可用\cite{mesos-high-available-framework}。
-一些基于mesos的开源系统，如Marathon\cite{marathon}、Aurora\cite{Aurora}等，
-在mesos功能的基础上，实现了应用自动扩容与出错重启，实现了高可用与高可靠。
+Mesos也提供了相应的方案以实现其高可用\cite{mesos-high-available-framework}。
+一些基于Mesos的开源系统，如Marathon\cite{marathon}、Aurora\cite{Aurora}等，
+在Mesos功能的基础上，实现了应用自动扩容与出错重启，满足了高可用与高可靠需求。
 
 
 \subsection{节点内资源管理架构}
@@ -207,13 +209,18 @@ mesos也提供了相应的方案以实现其高可用\cite{mesos-high-available-
 节点内资源管理可以分为带内管理（in-band management）与带外管理（out-of-band management）两类。
 带内管理是指管理系统需要与应用系统运行在同一个平台上，
 将管理系统安装在服务器上，以实现对系统资源的管理，
-如Hypervisor以及上节介绍的Mesos都属于此种类型；
+如Hypervisor以及上节介绍的Mesos Slave都属于此种类型；
 带外管理使用独立的模块实现系统管理，典型的系统如IPMI/BMC。
 
-PARD体系结构采用带外管理的方式管理节点内的资源，其PRM的设计是源于服务器中IPMI/BMC的设计，并对其功能进行扩展。
-原始的IPMI/BMC只提供了XXX的功能，其架构如图\ref{fig:ipmi-schem}所示，
+PARD体系结构采用带外管理的方式管理节点内的资源，其PRM的设计是源于服务器中IPMI/BMC的设计，
+本节将对IPMI相关的背景进行介绍。
 
-The Intelligent Platform Management Interface (IPMI) is a set of computer interface specifications for an autonomous computer subsystem that provides management and monitoring capabilities independently of the host system's CPU, firmware (BIOS or UEFI) and operating system. IPMI defines a set of interfaces used by system administrators for out-of-band management of computer systems and monitoring of their operation. For example, IPMI provides a way to manage a computer that may be powered off or otherwise unresponsive by using a network connection to the hardware rather than to an operating system or login shell
+IPMI是智能平台管理接口（Intelligent Platform Management Interface，IPMI）的缩写，
+它为自动化服务器管理定义了一组接口标准\cite{ipmi}，
+为服务器提供独立于主机CPU、固件或操作系统的管理与监控，
+实现服务器带外管理。
+通过IPMI能够独立实现诸如服务器开关机、风扇\&温度监控、BIOS配置等操作。
+IPMI的结构如图\ref{fig:ipmi-schem}所示，其中主要包含以下几个模块：
 
 \begin{figure}[tb]
   \centering
@@ -221,8 +228,6 @@ The Intelligent Platform Management Interface (IPMI) is a set of computer interf
   \caption{IPMI结构框图}
   \label{fig:ipmi-schem}
 \end{figure}
-
-IPMI的结构如图\ref{fig:ipmi-schem}所示，其中主要包含以下几个模块：
 
 \textbf{Baseboard Management Controller (BMC)}\quad
 微处理器BMC是整个IPMI架构的核心，它提供系统管理软件与硬件交互的接口，
@@ -237,13 +242,13 @@ IPMI使用IPMB标准实现BMC控制功能的扩展，IPMB是一个基于$I^2C$�
 \textbf{Intelligent Chassis Management Bus (ICMB)}\quad
 在具有多BMC的服务器上，ICMB为这些BMC提供统一的通信与控制接口，实现统一管理。
 
-PRM在其基础上通过控制平面与控制平面网络，将资源管理功能也增加到其中，PRM具体架构在第\ref{chap:prm:arch}节将进行详细介绍。
+%PRM在其基础上通过控制平面与控制平面网络，将资源管理功能也增加到其中，PRM具体架构在第\ref{chap:prm:arch}节将进行详细介绍。
 
 \section{软件栈平台与架构}
 \label{chap:prm:arch}
 
 PARD使用带外管理的方式实现硬件资源的管理，
-与资源管理相关的软件栈运行在独立的平台资源管理模块（PRM）上。
+资源管理相关的软件栈运行在独立的平台资源管理模块（PRM）上。
 如图\ref{fig:pard-swstk-arch}所示，
 PRM是一个嵌入式的SoC系统，其中集成了处理器、内存、flash存储、以太网接口等模块；
 与IPMI/BMC模块使用IPMB/ICMB总线连接其控制单元类似，
@@ -276,10 +281,11 @@ PRM上运行基于Linux操作系统的固件，使用分层的方式实现，如
 用户可以使用文件系统系统调用（如read/write/ioctl），
 操作/dev目录下的设备文件实现控制平面编程，
 也可以直接使用bash命令（如echo/cat等）操作/sys目录下的文件实现对控制平面编程。
-直接操作/sys中的文件是更为推荐的方式，下节将详细描述控制平面抽象以及/sys文件系统的功能。
+直接操作/sys中的文件是更为推荐的方式。
+基于sysfs的控制平面抽象及其功能将在下一节进行详细描述。
 
 应用适配层提供PARD体系结构在不同使用场景中的接口，
-本文PARD原型系统实现了本地逻辑域和Mesos Daemon两个接口，
+本文PARD原型系统实现了本地逻辑域和Mesos Slave两个接口，
 分别用于单节点资源管理与数据中心多节点资源管理。
 
 当服务器加电后PRM首先启动，由控制平面驱动枚举控制平面网络，识别系统中的控制平面；
@@ -332,7 +338,7 @@ ldoms目录下的每个子目录代表该控制平面上当前存在的逻辑域
 目录下创建名为ldom4逻辑域目录。
 该逻辑域目录下包含parameters、statistics和triggers 3个子目录，
 分别对应于控制平面内的3个控制表。
-其中parameters和statistics子目录下的文件与其控制表表项一一对应，
+其中parameters和statistics子目录下的文件与其控制表项一一对应，
 以图\ref{fig:prm-swstk}中Cacge控制平面cpa0为例，
 其参数表的参数way\_mask、以及状态表的miss\_rate和capacity都有相应的sysfs文件。
 triggers目录与另外2个目录略有不同，该目录下为每一个有效的触发表项建立一个文件，
@@ -348,7 +354,7 @@ triggers目录与另外2个目录略有不同，该目录下为每一个有效�
 在PRM上支持的任意语言的脚本、甚至可执行的ELF文件都可以作为触发动作，
 通过sysfs安装到对应的触发条件上。
 当前的原型系统实现，无法使用sysfs接口创建新的触发条件，
-只能访问/dev目录下的设备文件，直接操作触发表表（ttab）来创建触发条件，
+只能访问/dev目录下的设备文件，直接操作触发表（ttab）来创建触发条件，
 sysfs接口只提供对触发动作的修改功能。
 
 
@@ -391,68 +397,82 @@ PRM在确认本地资源充足后，为其分配逻辑域标识LDom\#1，后续�
 \end{enumerate}
 
 在资源分配完成后，PRM通过处理器控制平面，将两个处理器核复位，
-之后选择一个处理器核作为Bootstrap Processor（BSP），令其开始执行BIOS代码，并启动操作系统。
-由于不同的逻辑域使用不同的标识，在整个计算机的数据通路中都能够根据该标识对逻辑域实现区分，
-实现逻辑域之间的资源隔离。
+之后选择1个处理器核作为Bootstrap Processor（BSP），令其开始执行BIOS代码，并启动操作系统。
+%由于不同的逻辑域使用不同的标识，在整个计算机的数据通路中都能够根据该标识对逻辑域实现区分，
+%实现逻辑域之间的资源隔离。
 
-用户的应用在运行时对硬件资源的需求会发生变化，PARD提供了运行时调整硬件资源分配的方法，
-允许用户根据需求在运行时对逻辑域的资源分配进行调整，以满足应用的需求。
-硬件资源包括可透明调整的资源，如Cache容量、访存带宽等；
-也包括需要操作系统支持的资源，如处理器核、内存容量、I/O设备。
-
-在创建逻辑域时，同时还可以指定其性能参数，如Cache替换策略掩码、访存调度优先级、
-I/O带宽等，各个硬件部分根据其控制平面中指定的性能参数实现对不同逻辑域的区分化服务。
+%用户的应用在运行时对硬件资源的需求会发生变化，PARD提供了运行时调整硬件资源分配的方法，
+%允许用户根据需求在运行时对逻辑域的资源分配进行调整，以满足应用的需求。
+%硬件资源包括可透明调整的资源，如Cache容量、访存带宽等；
+%也包括需要操作系统支持的资源，如处理器核、内存容量、I/O设备。
+%
+%在创建逻辑域时，同时还可以指定其性能参数，如Cache替换策略掩码、访存调度优先级、
+%I/O带宽等，各个硬件部分根据其控制平面中指定的性能参数实现对不同逻辑域的区分化服务。
 
 
 \subsection{资源隔离}
 
-软件怎么实现资源隔离：cgroup、hypervisor
+由于没有相关的硬件支持，当前系统主要使用软件（如cgroup和Hypervisor）进行资源隔离，
+软件主要是通过调度的方式实现资源隔离，
+通过调整不同应用的调度策略，实现资源隔离。
 
-PARD以逻辑域为粒度进行资源隔离。
+PARD提供了更为直接的资源隔离方案，
+由于硬件已经通过控制平面参数表将其可调整的策略提供给上层软件，
+并通过PRM的sysfs抽象将其暴露给用户。
+因此在PARD系统上实现资源隔离，只需要通过sysfs接口对不同应用的资源占用进行调整即可。
 
+以处理器末级缓存为例，
+在使用默认参数创建逻辑域时，所有的逻辑域都共享处理器末级缓存资源，
+如果这些应用中存在一些受缓存影响较大的关键应用时，
+可以使用以下命令控制Cache控制平面，对缓存容量进行划分：
 
+\begin{verse}
+\textit{echo} 0x00FF \textit{>  /sys/cpa/cpa}0\textit{/ldoms/ldom}0\textit{/parameters/waymask} \\
+\textit{echo} 0xFF00 \textit{>  /sys/cpa/cpa}0\textit{/ldoms/ldom}1\textit{/parameters/waymask} \\
+\textit{echo} 0xFF00 \textit{>  /sys/cpa/cpa}0\textit{/ldoms/ldom}2\textit{/parameters/waymask} \\
+\textit{echo} 0xFF00 \textit{>  /sys/cpa/cpa}0\textit{/ldoms/ldom}3\textit{/parameters/waymask} \\
+\end{verse}
 
-使用默认参数创建的逻辑域，其资源是完全共享的。
-
-PRM提供接口实现对不同逻辑域的资源进行隔离，具体方法如下，以Cache为例。
-
-
+该命令设置LDom\#0独占8路缓存，另外3个逻辑域共享8路缓存，
+通过缓存容量划分的方式实现资源隔离。
 
 
 \subsection{性能监控与反馈}
 
 按照性能监控的发起者，可将性能监控分为pull和push两类。
 目前大多数系统都使用pull的方式获取硬件资源监控信息，
-如处理器内常见的Performance Counter，通过xxx，获取监控信息。
-这种方式需要用户主动参与，才能获取信息。
-PARD在控制平面上使用硬件实现资源监控，以硬件请求为粒度，将实时的状态信息更新到其中状态表中，
+如处理器内常见的Performance Counter。
+pull方式的性能监控需要用户主动参与，才能获取信息，实现实时性能监控开销很大。
+PARD在控制平面上使用硬件实现资源监控，以硬件请求为粒度，将实时的状态信息更新到状态表中，
 通过PRM软件栈的sysfs抽象，可以随时获取实时的状态信息。
 
-性能监控与反馈主要得益于控制平面的设计，通过在硬件上增加控制平面，对请求进行处理，
-可以获得不同的应用的状态。如Cache缺失率、访存延迟等。
-并通过一个可编程的触发逻辑，当特定事件发生后，将消息通过统一的控制平面网络，
-发送到集中式的资源管理模块PRM，由PRM对资源分配进行调整。
+PARD体系结构提供的``\emph{trigger$\Rightarrow$action}''机制，
+可以用于实现实时的性能监控与反馈。
+使用第\ref{chap:prm:arch:cpabs}节介绍的方法，为需要实时监控的状态设置触发条件，
+并为其编写动作脚本，该脚本可以直接实现资源重新分配、或只是通知上层数据中心管理系统，
+由其决定后续执行的动作。
 
-Programming Methodology
-As mentioned in x3, we adopt a ``trigger$\Rightarrow$action'' programming
-methodology. Data center operators predefine a set of trigger)action
-rules for different priorities. Usually a trigger is based on performance
-metrics, e.g., ``MissRate>30\%''.
-Example 1 in Figure 6 demonstrates how to install a trigger)action
-rule. A data center operator uses the pardtrigger command to program
-the trigger condition ``MissRate>30\%'' for ``ldom=0'' (i.e.,
-DS-id=0) into the trigger table of the cache control plane (cpa0).
-The parameter ``action=0'' guides the command to create a leaf
-node ``0'' under ``.../cpa0/ldoms/ldom0/triggers''. Then the operator
-calls ``echo ...'' to install the action script ``/cpa0-ldom0-t0.sh''
-shown in Example 2.
-There are two programming approaches based on the device file
-tree. One is invoking system calls (open/read/write etc.) to open
-and manipulate a CPA file. For example, the pardtrigger command
-is written in C and invokes syscalls to install a trigger into the
-cache control plane. The advantage of this approach is very fast. A
-more convenient approach is leveraging bash commands to directly
-access these CPA files, as shown in Example 2.
+%具体方法如下：
+%Programming Methodology
+%As mentioned in x3, we adopt a ``trigger$\Rightarrow$action'' programming
+%methodology. Data center operators predefine a set of trigger)action
+%rules for different priorities. Usually a trigger is based on performance
+%metrics, e.g., ``MissRate>30\%''.
+%Example 1 in Figure 6 demonstrates how to install a trigger)action
+%rule. A data center operator uses the pardtrigger command to program
+%the trigger condition ``MissRate>30\%'' for ``ldom=0'' (i.e.,
+%DS-id=0) into the trigger table of the cache control plane (cpa0).
+%The parameter ``action=0'' guides the command to create a leaf
+%node ``0'' under ``.../cpa0/ldoms/ldom0/triggers''. Then the operator
+%calls ``echo ...'' to install the action script ``/cpa0-ldom0-t0.sh''
+%shown in Example 2.
+%There are two programming approaches based on the device file
+%tree. One is invoking system calls (open/read/write etc.) to open
+%and manipulate a CPA file. For example, the pardtrigger command
+%is written in C and invokes syscalls to install a trigger into the
+%cache control plane. The advantage of this approach is very fast. A
+%more convenient approach is leveraging bash commands to directly
+%access these CPA files, as shown in Example 2.
 
 
 \section{与数据中心结合}
@@ -460,9 +480,9 @@ access these CPA files, as shown in Example 2.
 % 云计算三种模型
 云计算有三种模式：SaaS、PaaS、IaaS，如图\ref{fig:cloud-usage-model}所示，
 其区别在于用户需要管理的层次
-其中IaaS用户需要管理到OS层，以OpenStack为例；
-PaaS用户只需要管理应用与数据，其他部分由数据中心管理，以Docker为例；
-SaaS是最底层，用户直接使用不同软件组合，以XX为例。
+其中IaaS用户需要管理到OS层，如OpenStack；
+PaaS用户只需要管理应用与数据，其他部分由数据中心管理，如Docker的使用模式；
+SaaS是最底层，用户直接使用不同软件组合。
 本章主要考查IaaS与PaaS两种模式。
 
 \begin{figure}[tb]
@@ -473,15 +493,17 @@ SaaS是最底层，用户直接使用不同软件组合，以XX为例。
 \end{figure}
 
 PARD提供的逻辑域抽象，能够很容易的实现IaaS模式，
-因为逻辑域抽象与虚拟机抽象几乎完全类似，之前几章的工作都是基于IaaS模式对PARD进行讨论，
+因为逻辑域抽象与虚拟机抽象几乎完全相同，之前几章的工作都是基于IaaS模式对PARD进行讨论。
 但目前数据中心PaaS由于资源浪费较少，被越来越广泛的使用，
 本节主要讨论如何在PARD平台上实现PaaS模式，同时将其集成到数据中心管理系统中，
-这里将主要针对mesos系统进行讨论。
+这里将主要针对Mesos系统进行讨论。
 
 \subsection{使用PARD体系结构实现PaaS}
 % PARD如何实现PaaS
-PARD实现PaaS的方式是通过类似于unikernel/LibOS的方式，
-用户提供应用，PARD软件栈提供OS kernel，并将两者组合运行在逻辑域中。
+PARD实现PaaS的方式类似于
+unikernel\cite{Unikernels:2013}或LibOS\cite{Porter:2011}的实现方式，
+由用户提供应用与数据，并选择PARD软件栈所提供的运行时环境与库，
+在运行时与PARD软件栈提供OS kernel组合，最终运行在PARD的逻辑域中。
 具体流程如下，如图\ref{fig:pard-ldom-paas}：
 
 1）用户提供需要执行的应用与数据，并选择所需的运行时环境和库；
@@ -501,25 +523,25 @@ PARD实现PaaS的方式是通过类似于unikernel/LibOS的方式，
 
 通过以上方式实现硬件支持的容器，该方法也可以在其它只提供IaaS抽象的场景中实现PaaS的功能。
 
-\subsection{mesos系统集成}
-% mesos如何管理资源
+\subsection{Mesos系统集成}
+% Mesos如何管理资源
 
 % PARD如何支持MesosExecutor
 
 
 \subsection{PARD体系结构对数据中心管理系统的影响}
-% 对mesos资源模型的影响
-%  -- PARD为mesos增加了额外可控制的资源
-%  -- mesos如何管理这些额外的资源
+% 对Mesos资源模型的影响
+%  -- PARD为Mesos增加了额外可控制的资源
+%  -- Mesos如何管理这些额外的资源
 %    -- 增加资源抽象属性：CPU/Mem => Cache/BW/QoS-Level/etc.
 %    -- 增加调度考查
 
 
 \section{小结}
 
-计算机软硬件需要协同工作，PARD体系结构通过软件可编程的方式为上层软件提供了更多可控制的能力，
+计算机软硬件需要协同工作，PARD体系结构通过可编程的方式为上层软件提供了更多对硬件的控制能力，
 这包括：应用区分、细粒度资源管理、应用区分的实时性能监控以及资源的反馈调节机制，
-本章设计了一种节点内资源管理抽象，实现了以上特性的软硬件接口。
+本章基于Linux sysfs机制设计了一种节点内资源管理抽象，为以上硬件特性实现了软件接口。
 PARD提供的带外管理特性，使得系统管理与应用分离，实现单独控制；
 其全硬件支持的虚拟化（逻辑域）特性，降低了软件开销与成本。
 PARD体系结构可以很容易的集成到IaaS或PaaS模式的云计算平台下，

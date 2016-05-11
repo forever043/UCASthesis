@@ -278,7 +278,7 @@ Flip Flop（FF）总计使用165,707个，占FF总量的38.25\%。
 FPGA原型系统中，PRM软件栈主要实现3个功能，分别是：
 1）服务器硬件资源管理；
 2）逻辑域操作系统支持；
-3）mesos接口。
+3）Mesos接口。
 其中1）和3）两个功能在第\ref{chap:prm}章已经做了详细介绍，
 本节只讨论逻辑域操作系统支持这一功能。
 
@@ -548,10 +548,10 @@ memcached的性能恢复到了600RPS左右。
 \subsection{策略生效时间}
 \label{chap:impl:trigger-latency}
 
-本节实验测试通过``trigger$\Rightarrow$action''机制实现缓存容量调整的效果及生效时间。
+本节实验测试通过``\emph{trigger$\Rightarrow$action}''机制实现缓存容量调整的效果及生效时间。
 本实验使用memcached作为关键应用负载，实验过程与上节相同，在不同时间依次加入3个干扰应用。
 与上节实验的区别在于，不需要手动调节容量划分，
-而是使用``trigger$\Rightarrow$action''机制进行自动调节。
+而是使用``\emph{trigger$\Rightarrow$action}''机制进行自动调节。
 具体方法如下：1）编写action动作脚本，在其中分配15路缓存给memcached所在逻辑域；
 2）在Cache控制平面的触发表中增加触发条件``Cache缺失率超过30\%''，
 并将其触发动作设置为1）中编写的动作脚本。
@@ -559,7 +559,7 @@ memcached的性能恢复到了600RPS左右。
 通过以上的配置修改后，在整个实验过程中，
 增加的3个干扰应用并没有对memcached的性能造成任何的影响，
 始终保持600RPS左右的性能。
-分析整个``trigger$\Rightarrow$action''的过程，
+分析整个``\emph{trigger$\Rightarrow$action}''的过程，
 从触发条件满足到缓存容量划分策略生效总共经历了160ms的时间。
 其中触发逻辑检测到条件满足到向PRM发送中断只需要2个时钟周期，即15ns（控制平面工作在133.33MHz频率）；
 PRM检测到中断发生需要1.6ms，响应动作（向参数表写入新策略）耗时约3ms；
