@@ -21,8 +21,9 @@
 
 基于以上3个问题，本章提出一种通用硬件资源管理方法与架构，
 通过统一的接口将不同的硬件上不同的机制、策略结合，
-通过软件可编程的方式对硬件资源管理方法进行调整，
-包括基于``控制平面''的策略可编程和``数据平面''的机制可编程，以支持数据中心复杂多应用场景。
+使用软件可编程的方式对硬件资源管理方法进行调整，
+包括基于``控制平面''的策略可编程和``数据平面''的机制可编程，
+以支持数据中心复杂多变的应用场景。
 具体内容安排如下：
 首先分析通用硬件资源管理的动机，然后针对2类主要硬件资源Cache和内存控制器分析其资源抽象，
 提出基于``控制平面''与``数据平面''抽象的资源抽象方法，
@@ -61,7 +62,6 @@
 但它们都符合图\ref{fig:resource-manage-flow}所示的资源管理流程模型，
 表\ref{tab:resman-compare}列举了这些工作与模型的映射关系。
 
-
 \begin{table}[htb]
   \centering
   \begin{minipage}[t]{0.95\linewidth}
@@ -72,32 +72,29 @@
       \multirow{2}{*}{\textbf{rbput}}     & \multirow{2}{*}{\textbf{硬件资源}} & \multicolumn{2}{c}{\textbf{机制}}     & \multicolumn{2}{c}{\textbf{策略}}     \\
                                           &                                    & \textbf{资源监控} & \textbf{资源调整} & \textbf{冲突检测} & \textbf{资源分配} \\
       \midrule[1pt]
-      ReQoS\cite{tang_reqos:_2013}        & LLC                                &                   &                   &                   &                   \\
-      Bubble X\cite{mars_bubble-up:_2011,yang_bubble-flux:_2013} & LLC                                &                   &                   &                   &                   \\
+      ReQoS\cite{tang_reqos:_2013}        & LLC、内存                          & Perf. Counter, IPC & Throttling        & Compiling         &                   \\
+      Bubble X\cite{mars_bubble-up:_2011,yang_bubble-flux:_2013} & LLC、内存   & Perf. Counter, IPC &                   &                   &                   \\
       \hline
       Intel RDT\cite{intel-rdt}           & LLC、内存                          & CMT、MBM          & CAT               & \multicolumn{2}{c}{用户软件定义}      \\
       Jigsaw\cite{Jigsaw:2013}            & LLC                                &                   &                   &                   &                   \\
       Ubik\cite{kasture_ubik:_2014}       & LLC                                & UMON              &                   &                   &                   \\
       Vantage\cite{sanchez_vantage:_2011} & LLC                                &                   & DVFS              &                   &                   \\
-      \hline
-      \textbf{增加内存相关}\cite{}        & 内存                               &                   &                   &                   &                   \\
+     %\hline
+     %\textbf{增加内存相关}\cite{}        & 内存                               &                   &                   &                   &                   \\
       \bottomrule[1.5pt]
     \end{tabular*}\\[2pt]
   \end{minipage}
 \end{table}
 
 虽然以上这些方法具有相同的资源管理模型，在监控与调整方面有通用的地方，
-但由于接口问题无法直接应用在相同服务器上；
-而这些方法都只能用于某些特定的场景，无法应用到数据中心这种通用环境下；
-这些方法。
-%为不同的硬件资源，提供了多种机制和策略用以实现资源管理。
-%但它们不能组合使用，因为没有一个统一的接口。
+但由于接口问题无法共存。
+同时这些方法都只能用于某些特定的场景，
+在数据中心这种应用众多且需求各异的通用场景下，任何单一的方法都无法适用。
+在这种情况下，为服务器提供多种机制和策略，对它们进行统一的管理，
+根据应用负载的不同，选择适当的机制或策略的组合是更为合适的方案。
+但由于缺少统一的接口现有方案无法进行统一管理，更不能实现协同工作。
 
-问题：数据中心应用需求各不相同，需要不同的解决方案去实现资源管理，
-没有一种可以适用所有的应用。负载不断变化，服务器需要为不同的应用准备多种机制和策略，
-但又需要对多种策略进行统一的管理。
-
-体系结构内共享资源管理所遇到的问题与网络领域中网络设备管理问题存在相似性。
+该问题与网络领域中网络设备管理存在相似性。
 例如交换机、路由器等网络设备，虽然其具有相同的``存储$\rightarrow$转发''功能模型，
 但不同厂商生产的网络设备相互之间并不兼容，由于接口、协议等问题不能协同工作。
 而SDN/OpenFlow的出现，为这些网络设备提供了统一的管理协议（OpenFlow），
@@ -105,8 +102,7 @@
 同时利用SDN可编程特性，可以灵活部署新的策略，并根据应用变化调整网络。
 使得网络资源的管理更为灵活。
 
-
-体系结构内，硬件部件相当于网络设备，需要一个统一架构实现资源管理。
+在体系结构内，不同的硬件部件相当于不同网络设备，需要一个统一架构实现资源管理，
 该架构需要具有以下特性：
 
 \begin{enumerate}[leftmargin=2\parindent, nolistsep, label=\arabic*）]
@@ -851,7 +847,7 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 但需要对数据平面处理器与硬件的接口处进行额外的处理，
 如图\ref{fig:pard-dp-fw-upgrade}所示。
 
-\begin{figure}[tb]
+\begin{figure}[htb]
   \centering
   \includegraphics[width=0.6\textwidth]{hwres/pard-dp-fw-upgrade}
   \caption{数据平面处理器兼容性固件更新状态图}

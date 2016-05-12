@@ -527,26 +527,63 @@ unikernel\cite{Unikernels:2013}或LibOS\cite{Porter:2011}的实现方式，
 % Mesos如何管理资源
 
 % PARD如何支持MesosExecutor
+Mesos使用Containerizers组件在slave节点上任务的容器化，并负责任务容器的资源隔离、管理、以及状态收集。
+当前版本（0.28.1）的Mesos实现了4种容器化方案，分别是：Composing Containerizer、Docker Containerizer、
+Mesos Containerizer和External Containerizer，
+其中Docker和Mesos Containerizer是最为常用的两种容器化方法，分别使用基于Docker引擎和cgroup实现任务的容器化。
+
+在Mesos中运行任务分为3个阶段：
+第1阶段是slave节点注册，将自身的资源汇报给master节点；
+第2阶段由master将可用的资源列表发送给framework，由framework选择需要的资源，并调度任务给master；
+第3阶段是slave接收master发送的任务，通过Containerizers执行该任务。
+
+将PARD集成到Mesos系统中，需要对第1和3两个阶段进行修改。
+在第1阶段，由于Mesos Slave属于带内的方式实现资源，
+slave daemon运行在服务器操作系统之上，能够直接获得系统中的可用资源（如CPU、内存等）；
+而PARD的PRM使用带外的方式管理服务器资源，
+直接使用原始的slave daemon获得的可用资源是PRM上的可用资源，
+而不是服务器的可用资源。
+因此，需要修改slave daemon，使其通过控制平面获取可用的服务器资源。
+
+在第3阶段，需要为Mesos增加新的基于PARD逻辑域的容器化方法，
+该容器化方法接收的任务是上节所述的package镜像，具体流程如下：
+
+\begin{enumerate}[leftmargin=2\parindent, nolistsep, label=\arabic*）]
+  \item master发送任务与资源信息到PARD服务的slave，该slave使用PARD的容器化方法执行任务；
+  \item 在PRM中为该任务分配1个唯一的逻辑域编号，并根据资源信息在为该任务分配资源所在的控制平面上建立逻辑域；
+  \item 根据资源分配信息，为逻辑域预留资源；
+  \item 从master上获取任务的package；
+  \item 通知PRM将该package加载到建立的逻辑域中，并启动该逻辑域。
+\end{enumerate}
+
+另一个需要考虑的问题的周期性的资源汇报，Mesos slave每隔一定的时间就会向master发送心跳信息，
+同时其中还包含服务器当前资源使用情况。
+与上文第1阶段的修改类似，需要修改slave的周期性资源状况收集模块，
+使其通过控制平面获取当前资源的使用情况，
+同时将控制平面中状态表的信息一同发送给master，为其提供更多的状态信息，
+为实现更优化的任务调度策略提供数据基础。
 
 
-\subsection{PARD体系结构对数据中心管理系统的影响}
-% 对Mesos资源模型的影响
-%  -- PARD为Mesos增加了额外可控制的资源
-%  -- Mesos如何管理这些额外的资源
-%    -- 增加资源抽象属性：CPU/Mem => Cache/BW/QoS-Level/etc.
-%    -- 增加调度考查
-
-
+%\subsection{PARD体系结构对数据中心管理系统的影响}
+%% 对Mesos资源模型的影响
+%%  -- PARD为Mesos增加了额外可控制的资源
+%%  -- Mesos如何管理这些额外的资源
+%%    -- 增加资源抽象属性：CPU/Mem => Cache/BW/QoS-Level/etc.
+%%    -- 增加调度考查
+%
+%
 \section{小结}
 
-计算机软硬件需要协同工作，PARD体系结构通过可编程的方式为上层软件提供了更多对硬件的控制能力，
+计算机软硬件需要协同工作，
+PARD体系结构通过可编程的方式为上层软件提供了更多对硬件的控制能力，
 这包括：应用区分、细粒度资源管理、应用区分的实时性能监控以及资源的反馈调节机制，
 本章基于Linux sysfs机制设计了一种节点内资源管理抽象，为以上硬件特性实现了软件接口。
 PARD提供的带外管理特性，使得系统管理与应用分离，实现单独控制；
 其全硬件支持的虚拟化（逻辑域）特性，降低了软件开销与成本。
-PARD体系结构可以很容易的集成到IaaS或PaaS模式的云计算平台下，
-本章给出了一种基于IaaS实现PaaS的方法。
+通过本章所提出的软件接口抽象，
+可以很容易的将PARD体系结构到IaaS或PaaS模式的云计算平台下。
 由于单节点可控制能力的增加，为数据中心管理系统提出了新的挑战，
-这主要由于可管理的资源种类增加、以及性能相关的调度因素。
-如何在PARD这样的体系结构下设计出更灵活的作业调度与资源管理系统是未来软件设计的主要目标。
+%这主要由于可管理的资源种类增加、以及性能相关的调度因素。
+如何在PARD这样的体系结构下设计出更灵活的作业调度与资源管理系统，
+是未来软件设计的主要目标。
 
