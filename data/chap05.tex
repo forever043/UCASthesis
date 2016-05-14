@@ -57,30 +57,29 @@
 在软件层次根据监控结果对资源分配进行调度，
 最后通过资源调整接口实现资源重新分配，
 目前RDT只提供了CAT技术实现处理器末级缓存容量的划分。
-考查其他软硬件服务质量保障技术\cite{tang_reqos:_2013,mars_bubble-up:_2011,yang_bubble-flux:_2013,Jigsaw:2013,kasture_ubik:_2014,sanchez_vantage:_2011}，
+考查其他软硬件服务质量保障技术\cite{tang_reqos:_2013,yang_bubble-flux:_2013,Zhang:2009,herdrich_rate-based_2009,Jigsaw:2013,kasture_ubik:_2014,Nesbit:2006,mutlu_stall-time_2007},
 它们虽然针对不同的硬件资源、提供不同机制或策略，
 但它们都符合图\ref{fig:resource-manage-flow}所示的资源管理流程模型，
 表\ref{tab:resman-compare}列举了这些工作与模型的映射关系。
 
 \begin{table}[htb]
   \centering
-  \begin{minipage}[t]{0.95\linewidth}
+  \begin{minipage}[t]{\linewidth}
   \caption{资源管理相关工作}
   \label{tab:resman-compare}
-    \begin{tabular*}{\linewidth}{cccccc}
+    \begin{tabular*}{\linewidth}{ccp{2cm}p{6cm}}
       \toprule[1.5pt]
-      \multirow{2}{*}{\textbf{rbput}}     & \multirow{2}{*}{\textbf{硬件资源}} & \multicolumn{2}{c}{\textbf{机制}}     & \multicolumn{2}{c}{\textbf{策略}}     \\
-                                          &                                    & \textbf{资源监控} & \textbf{资源调整} & \textbf{冲突检测} & \textbf{资源分配} \\
+      \textbf{相关工作}                        & \textbf{QoS指标} & \textbf{监控机制}   & \textbf{QoS保障策略}     \\
       \midrule[1pt]
-      ReQoS\cite{tang_reqos:_2013}        & LLC、内存                          & Perf. Counter, IPC & Throttling        & Compiling         &                   \\
-      Bubble X\cite{mars_bubble-up:_2011,yang_bubble-flux:_2013} & LLC、内存   & Perf. Counter, IPC &                   &                   &                   \\
+      ReQoS\cite{tang_reqos:_2013}             & IPC              & 性能计数器 & 基于编译和运行时的应用执行管控（throttling）     \\
+      Bubble Flux\cite{yang_bubble-flux:_2013} & IPC              & 性能计数器 & 基于Linux信号（SIGSTOP \& SIGCONT）的执行管控    \\
       \hline
-      Intel RDT\cite{intel-rdt}           & LLC、内存                          & CMT、MBM          & CAT               & \multicolumn{2}{c}{用户软件定义}      \\
-      Jigsaw\cite{Jigsaw:2013}            & LLC                                &                   &                   &                   &                   \\
-      Ubik\cite{kasture_ubik:_2014}       & LLC                                & UMON              &                   &                   &                   \\
-      Vantage\cite{sanchez_vantage:_2011} & LLC                                &                   & DVFS              &                   &                   \\
-     %\hline
-     %\textbf{增加内存相关}\cite{}        & 内存                               &                   &                   &                   &                   \\
+      Zhang \emph{et.al.}\cite{Zhang:2009}     & 执行时间         & \emph{N/A} & 硬件执行管控，\emph{e.g.} duty-cycle modulation  \\
+      Rate-Based QoS\cite{herdrich_rate-based_2009} & IPC、执行时间    & 性能计数器 & 硬件执行管控，\emph{e.g.} clock modulation, DVFS \\
+      Intel RDT\cite{intel-rdt}                & 缺失率、带宽     & CMT、MBM                               & Cache容量划分，CAT                                 \\
+      Jigsaw\cite{Jigsaw:2013}, Ubik\cite{kasture_ubik:_2014} & 缺失率、长尾延迟 & UMON\cite{qureshi_utility-based_2006}  & Cache容量划分，Vantage\cite{sanchez_vantage:_2011} \\
+      FQ-VT\cite{Nesbit:2006}                  & IPC、访存延迟        & \emph{N/A}  & Fair-Queuing访存调度    \\
+      STFM\cite{mutlu_stall-time_2007}         & 访存带宽、延迟       & \emph{N/A}  & Stall-Time Fair访存调度 \\
       \bottomrule[1.5pt]
     \end{tabular*}\\[2pt]
   \end{minipage}
