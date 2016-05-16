@@ -125,7 +125,9 @@
 计算机内的硬件资源主要可以分为两类，一类是基于容量的资源，一类是基于流量的资源。
 例如，共享缓存、处理器核、以及硬盘空间是基于容量的资源，
 总线带宽、访存带宽、或网络带宽是基于流量的资源。
-为了实现对这些硬件资源的管理，PARD将计算机内这些硬件资源抽象为数据平面与控制平面两部分。
+2类资源在管理上使用不同的参数与策略，\textbf{再说的明白一点}。
+为了实现对这些不同类别硬件资源的管理，
+PARD将计算机内这些硬件资源抽象为数据平面与控制平面两部分。
 其中数据平面用于执行请求操作，如处理器末级缓存对DataArray/TagArray的管理、替换策略实现等；
 对于内存控制器，其数据平面负责接收上层访存请求、将物理地址转换为DRAM地址以及访存请求调度等。
 而控制平面用于对数据平面的策略进行管理，例如对处理器末级缓存数据平面中替换策略的管理、命中信息统计；
@@ -523,6 +525,7 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
   \item 控制平面更新统计表并检查是否满足触发条件，如果满足则发送中断信号到PRM。
 \end{enumerate}
 
+
 \subsection{基于PARD模拟器的评测}
 
 本节在第\ref{chap:labeladdrspace:nohype}节所建立的模拟器基础上，
@@ -531,12 +534,42 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 2）在磁盘控制器中增加基于带宽划分的调度功能。
 并为它们增加控制平面，同时在模拟器中模拟了基于X86-SoC的PRM，
 实现对这2个硬件资源的集中式管理。
+表\ref{tab:pard-sim-cp}给出了3个控制平面中控制表的设计。
+
+缓存容量划分选择了最简单的按路划分的方式，控制平面提供路划分掩码，
+修改Cache替换策略，按照控制平面所提供的掩码进行替换目标的选择，实现路划分。
+对于磁盘带宽划分，使用基于时间片的调度方法，即通过划分固定时间间隔的时间片，
+设置在该时间段内所允许的最大带宽，实现对带宽的划分。
 
 修改后的模拟器最多支持启动4个逻辑域，
 能够通过PRM调整4个逻辑域对处理器末级缓存与磁盘控制器的资源分配，
 本节将使用该模拟器验证控制平面对资源分配的控制（磁盘控制器）、
 以及``\emph{trigger$\Rightarrow$action}''机制的效果（处理器末级缓存）。
 %更多模拟器的实现细节将在第\ref{chap:impl:simulator}节中进行介绍。
+
+\begin{table}[ht]
+  \centering
+  \begin{minipage}[t]{0.9\linewidth}
+  \caption{PARD模拟器控制平面控制表设计}
+  \label{tab:pard-sim-cp}
+    \begin{tabular*}{\linewidth}{rl}
+      \toprule[1.5pt]
+        \textbf{Parameter Table}  &   Cache: way mask-bits                               \\
+                                  &   Memory: row-buffer mask-bits, scheduling priority, address mapping \\
+                                  &   Disk: bandwidth                                    \\
+        \hline
+        \textbf{Statistics Table} &   Cache: miss rate, capacity                         \\
+                                  &   Memory: bandwidth, latency                         \\
+                                  &   Disk: bandwidth                                    \\
+        \hline
+        \textbf{Trigger Table}    &   LLC miss rate $\Rightarrow$ way mask-bits          \\
+                                  &   Memory latency $\Rightarrow$ row-buffer mask-bits  \\
+                                  &   Memory latency $\Rightarrow$ scheduling priority   \\
+      \bottomrule[1.5pt]
+    \end{tabular*}\\[2pt]
+  \end{minipage}
+\end{table}
+
 
 
 \subsubsection{``\emph{trigger$\Rightarrow$action}''机制验证}
@@ -619,9 +652,6 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 同时能够管理基于流量的资源，如内存带宽与I/O带宽。
 本节验证控制平面对带宽的控制，这里使用磁盘I/O带宽作为实验目标。
 
-\textbf{TODO: 增加如何实现I/O带宽控制的描述}\\
-\textbf{TODO, TODO, TODO, TODO, TODO, TODO, TODO, TODO, TODO, TODO, TODO, TODO}
-
 在本节的实验中，只使用模拟器中2个逻辑域，在其中使用命令
 ``\textit{dd if=/dev/zero of=/dev/sdb bs=}32\textit{M count=}16''
 执行磁盘写操作。
@@ -636,17 +666,18 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 该命令通过PRM对磁盘控制器控制平面（cpa3）进行编程，修改LDom\#0的带宽占比为80\%，
 图\ref{fig:pardsim:iosched}给出了磁盘I/O带宽分配的效果。
 
-虽然诸如cgroup\cite{cgroup}之类的方法也能提供类似的I/O带宽管理功能，
-但PARD所提供的资源管理方法能够在硬件层次实现更为细粒度的资源管理，
-同时无需对用户操作系统或应用进行任何的修改，降低了软件栈的复杂度与开销。
-关于控制平面的编程接口，以及如何在PRM中实现资源管理将在第\ref{chap:prm}章进行详细的介绍。
-
-\begin{figure}[tb]
+\begin{figure}[t]
   \centering
   \includegraphics[width=0.45\textwidth]{hwres/pard-sim-iosched}
   \caption{磁盘I/O性能隔离}
   \label{fig:pardsim:iosched}
 \end{figure}
+
+
+虽然诸如cgroup\cite{cgroup}之类的方法也能提供类似的I/O带宽管理功能，
+但PARD所提供的资源管理方法能够在硬件层次实现更为细粒度的资源管理，
+同时无需对用户操作系统或应用进行任何的修改，降低了软件栈的复杂度与开销。
+关于控制平面的编程接口，以及如何在PRM中实现资源管理将在第\ref{chap:prm}章进行详细的介绍。
 
 
 \section{可编程数据平面设计}
@@ -710,13 +741,6 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 无符号整数的长度与处理器的位宽相同，都被设置为其所属硬件的位宽，
 以节约请求处理时位宽转换的开销，保障请求处理的效率。
 
-\begin{figure}[b]
-  \centering
-  \includegraphics[width=0.7\textwidth]{hwres/pard-dp-datatype}
-  \caption{数据平面处理器支持的数据类型}
-  \label{fig:pard-dp-datatype}
-\end{figure}
- 
 ``请求''类型的是一个变长数据类型，其中包含了固定的16位应用标签（DS-id）以及变长的请求数据。
 以访存请求为例，其中包含请求地址、长度、线程号、读写类型、锁与缓存状态等其他一些标志位；
 对于Cache替换请求，其中包含了请求地址、Hit/Miss标记以及其他一些标志位等信息。
@@ -724,6 +748,13 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 数据平面处理器本身并不关心请求类型中具体每个位的意义，而只是将其做一个整体进行处理，
 对每个域的解析或修改由其运行的固件代码完成。
 
+\begin{figure}[hb]
+  \centering
+  \includegraphics[width=0.7\textwidth]{hwres/pard-dp-datatype}
+  \caption{数据平面处理器支持的数据类型}
+  \label{fig:pard-dp-datatype}
+\end{figure}
+ 
 \subsubsection{存储模型}
 数据平面处理器中程序员可见的存储结构包含寄存器、请求缓存、scratchpad memory、I/O地址空间四部分。
 与传统的RISC架构相同，数据平面处理器包含32个通用寄存器（\textit{r}0-\textit{r}31），

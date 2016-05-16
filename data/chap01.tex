@@ -19,22 +19,24 @@
 使得应用性能出现不可预测的波动，进而影响应用的服务质量。
 由上可知，如何权衡数据中心资源利用率与应用服务质量是当前数据中心亟待解决的重要问题。
 
-% ---- begin cut from chap02, to be merged ----
-互联网应用如电子邮件、搜索、网络购物、社交网络、在线视频、网络地图等，
-已经成为人们生活的一部分。
-这些应用往往要为上亿用户服务，意味着互联网应用已变成如电力一样的社会公共服务，
-而支撑拥有海量用户互联网应用的数据中心也成为如同发电厂一样的社会核心基础设施。
+%%% ---- begin cut from chap02, to be merged ----
+%%互联网应用如电子邮件、搜索、网络购物、社交网络、在线视频、网络地图等，
+%%已经成为人们生活的一部分。
+%%这些应用往往要为上亿用户服务，意味着互联网应用已变成如电力一样的社会公共服务，
+%%而支撑拥有海量用户互联网应用的数据中心也成为如同发电厂一样的社会核心基础设施。
+%%
+%%长尾延迟（Tail Latency）问题在数据中心中受到越来越多的关注，
+%%造成长尾延迟的原因有很多，其中最为重要的原因就是资源共享带来的干扰。
+%%由于缺少行之有效的方案对干扰进行控制，目前典型的数据中心都使用基于隔离的方案来减小干扰，
+%%该方案虽然有效缓解了长尾延迟，但它也带来了资源利用率过低的问题，
+%%现有商用数据中心的资源利用率普遍只有6\%$\sim$12\%左右，造成极大的浪费。
+%%如何解决服务质量与资源利用率冲突的问题是当前业界面临的重大挑战。
 
-长尾延迟（Tail Latency）问题在数据中心中受到越来越多的关注，
-造成长尾延迟的原因有很多，其中最为重要的原因就是资源共享带来的干扰。
-由于缺少行之有效的方案对干扰进行控制，目前典型的数据中心都使用基于隔离的方案来减小干扰，
-该方案虽然有效缓解了长尾延迟，但它也带来了资源利用率过低的问题，
-现有商用数据中心的资源利用率普遍只有6\%$\sim$12\%左右，造成极大的浪费。
-如何解决服务质量与资源利用率冲突的问题是当前业界面临的重大挑战。
-
-本章内容安排如下：首先介绍新计算模式对数据中心的挑战，
+本章内容安排如下：
+首先介绍新计算模式对数据中心的挑战，
 然后讨论现有数据中心技术的局限性，即服务质量与资源利率冲突的原因，
-之后介绍针对该问题的相关工作，包括服务器融合技术和软硬件资源管理相关工作。
+进而引出本文的研究动机与解决方案，
+最后介绍本文的主要贡献和组织结构。
 
 %服务质量（QoS）与资源利用率是数据中心运营时需要考虑的两个重要指标，前者严重影响用户
 %体验，而后者直接与数据中心的运营成本相关。然而现有的计算机体系结构并没有为服务质量
@@ -242,18 +244,18 @@ Google在分布式架构和软件层次采用了多种缓解长尾延迟的技�
 导致仍然会出现图\ref{fig:google-resptime-dist}这样的长尾延迟。
 
 \begin{figure}
-\begin{minipage}{0.44\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{bg/google-resptime-dist}
-  \caption[Google某后台服务的响应时间分布]{Google某后台服务的响应时间分布\cite{Krushevskaja:2013}}
-  \label{fig:google-resptime-dist}
-\end{minipage}\hfill
 \begin{minipage}{0.52\textwidth}
   \centering
   \includegraphics[width=\textwidth]{bg/long-tail-amplify}
   \caption[长尾延迟放大效应]{长尾延迟放大效应\cite{dean_tail_2013}}
   \label{fig:long-tail-amplify}
 \end{minipage}
+\begin{minipage}{0.44\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{bg/google-resptime-dist}
+  \caption[Google某后台服务的响应时间分布]{Google某后台服务的响应时间分布\cite{Krushevskaja:2013}}
+  \label{fig:google-resptime-dist}
+\end{minipage}\hfill
 \end{figure}
 
 因此，现有数据中心处于``无管理的资源共享''状态，
@@ -346,7 +348,7 @@ Google的数据\cite{Reiss_googletrace_2012}发现大量的小于6分钟的应�
 从体系结构上支持应用服务质量保障，
 在此基础上实现数据中心资源根据应用动态管理以提高资源利用率。
 
-\begin{figure}[H]
+\begin{figure}[t]
   \centering
   \includegraphics[height=4cm]{intro/computer-as-a-network.pdf}
   \caption[计算机内部本质是一个网络]{

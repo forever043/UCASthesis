@@ -366,45 +366,18 @@ SAD的结构如图\ref{fig:intel-7500-sad}所示，
 本节基于模拟器，介绍标签机制的具体实现，
 并讨论如何该架构下实现全硬件支持的虚拟化技术，提供PARD体系结构的逻辑域抽象。
 
-% 讲一下gem5的基本配置，timing-simple、Classic Memory、X86 arch
-本节所使用的PARD体系结构模拟器基于gem5\cite{binkert_gem5_2011}实现，
-选择gem5提供的x86指令集与Classic Memory内存模型，
-并使用timing-simple与detail两种模型进行仿真。
-实验模拟了1台四核x86服务器，共享4MB 16路的处理器末级缓存与8GB的DDR3内存，
-服务器上提供4个IDE控制器，每个控制器上挂载2个磁盘。
-完整的模拟器的配置与架构参见第\ref{chap:impl:simulator}节。
-
-
-%%% ---- cut from chap07 ---- tobe merged
-%\section{PARD模拟器}
-%\label{chap:impl:simulator}
-
 PARD模拟器是基于gem5\cite{binkert_gem5_2011}开发的时钟精确（cycle-accurate）
 体系结构模拟器\footnote{PARD-gem5模拟器已在LGPL协议下开源，地址https://github.com/fsg-ict/PARD-gem5}，
 它使用x86指令集与Classic Memory内存模型，
-能够支持atomic、timing-simple和detail三种仿真模型。
-它能够模拟1台四核x86服务器，具体配置参数如表\ref{tab:pard-sim-setup}所示，
+能够支持atomic、timing-simple和detail 3种模型进行仿真。
+它模拟了1台四核x86服务器，具体配置参数如表\ref{tab:pard-sim-setup}所示，
 主要包括：
-处理器核使用乱序四发射，工作频率为2GHz，具有分离的指令与数据缓存，容量均为64KB；
+处理器核使用乱序四发射，工作频率为2GHz，
+具有分离的指令与数据缓存，容量均为64KB；
 4个处理器核共享4MB的末级缓存（16路组相连）和1个DDR3内存控制器，内存容量为8GB；
 在I/O方面，服务器提供4个IDE控制器，每个控制器上挂载2个磁盘。
 
-模拟器在处理器核上增加了标签寄存器，并扩展了模拟器中的请求（packet）类型，
-实现应用标签的传播。
-在处理器末级缓存、内存控制器与IDE控制器上增加了可编程控制平面，
-并对硬件资源数据平面所提供的功能进行管理，
-表\ref{tab:pard-sim-cp}给出了3个控制平面中控制表的设计。
-该模拟器中同时模拟了基于x86体系结构的PRM，其主要配置包括：
-100MHz的x86处理器核、16MB内存、32MB存储、串口和以太网控制器，
-以及用于控制平面适配器。
-控制平面网络基于gem5模拟器中总线逻辑实现，连接以上3个控制平面到PRM的控制平面适配器。
-PRM上运行经过裁剪的Linux系统，基于内核版本2.6.28.4和Busybox\cite{busybox}实现。
-
-该模拟器能够模拟PARD体系结构的关键特性，实现将一台PARD服务器划分为最多4个逻辑域，
-并在其中运行未经修改的Gentoo Linux（内核版本2.6.28.4），
-以及CloudSuite\cite{Ferdman:2012:cloudsuite}的部分组件，如memcached\cite{memcached}。
-
-\begin{table}[ht]
+\begin{table}[b]
   \centering
   \begin{minipage}[t]{0.9\linewidth}
   \caption{PARD模拟器参数}  
@@ -438,33 +411,29 @@ PRM上运行经过裁剪的Linux系统，基于内核版本2.6.28.4和Busybox\ci
   \end{minipage}
 \end{table}
 
-\begin{table}[ht]
-  \centering
-  \begin{minipage}[t]{0.9\linewidth}
-  \caption{PARD模拟器控制平面控制表设计}
-  \label{tab:pard-sim-cp}
-    \begin{tabular*}{\linewidth}{rl}
-      \toprule[1.5pt]
-        \textbf{Parameter Table}  &   Cache: way mask-bits                               \\
-                                  &   Memory: row-buffer mask-bits, scheduling priority, address mapping \\
-                                  &   Disk: bandwidth                                    \\
-        \hline
-        \textbf{Statistics Table} &   Cache: miss rate, capacity                         \\
-                                  &   Memory: bandwidth, latency                         \\
-                                  &   Disk: bandwidth                                    \\
-        \hline
-        \textbf{Trigger Table}    &   LLC miss rate $\Rightarrow$ way mask-bits          \\
-                                  &   Memory latency $\Rightarrow$ row-buffer mask-bits  \\
-                                  &   Memory latency $\Rightarrow$ scheduling priority   \\
-      \bottomrule[1.5pt]
-    \end{tabular*}\\[2pt]
-  \end{minipage}
-\end{table}
+模拟器在处理器核上增加了标签寄存器，并扩展了模拟器中的请求（packet）类型，
+实现应用标签的传播，
+第\ref{chap:labeladdrspace:simimpl}节将详细介绍为实现PARD的标签化地址空间所进行的修改。
+模拟器还在处理器末级缓存、内存控制器与IDE控制器上增加了可编程控制平面，
+并对硬件资源数据平面所提供的功能进行管理，
+第\ref{chap:hwresman}章将详细介绍控制平面相关内容。
+模拟器中同时模拟了基于x86体系结构的PRM，其主要配置包括：
+100MHz的x86处理器核、16MB内存、32MB存储、串口和以太网控制器，
+以及用于控制平面适配器。
+控制平面网络基于gem5模拟器中总线逻辑实现，连接以上3个控制平面到PRM的控制平面适配器。
+PRM上运行经过裁剪的Linux系统，基于内核版本2.6.28.4和Busybox\cite{busybox}实现。
 
-% ---- end cut ----
+该模拟器能够模拟PARD体系结构的关键特性，实现将一台PARD服务器划分为最多4个逻辑域，
+并在其中运行未经修改的Gentoo Linux（内核版本2.6.28.4）；
+典型的Benchmark应用，如SPEC CPU\cite{cpu2006}；
+以及CloudSuite\cite{Ferdman:2012:cloudsuite}的部分组件，如memcached\cite{memcached}。
+
+
+\subsection{标签化地址空间实现}
+\label{chap:labeladdrspace:simimpl}
 
 % 实现打标签做的事情
-如前文所述，标签机制包含2个部分，即标签的标记与传播。
+如之间章节所介绍，标签机制包含2个部分，即标签的标记与传播。
 为实现标签标记，PARD模拟器修改了x86控制器寄存器的定义，
 在其中增加了1个16位的标签寄存器，其中低12位为资源域，高4位为性能域；
 在x86指令集中增加了两条MOV指令，实现标签寄存器性能域与通用寄存器之间的数据传递。
