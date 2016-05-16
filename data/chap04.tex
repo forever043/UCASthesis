@@ -28,8 +28,7 @@
 之后讨论本文所提出的标签化地址空间的原理、实现难点、以及技术优势； 
 最后在模拟器平台上实现了标签化地址空间，
 并利用标签化地址空间提供的应用区分功能实现无软件干预的全硬件支持虚拟化
-（类似于NoHype工作\cite{keller_nohype:_2010}），
-该架构也是本文后续研究的平台之一。
+（类似于NoHype工作\cite{keller_nohype:_2010}）。
 
 %
 % 本章结构：
@@ -359,11 +358,11 @@ SAD的结构如图\ref{fig:intel-7500-sad}所示，
 \end{figure}
 
 
-\section{标签化地址空间实现}
+\section{PARD模拟器}
 \label{chap:labeladdrspace:nohype}
 
 利用本章所设计的标签化地址空间架构，通过应用标签以及相应的标签传播机制，
-实现在整个计算机体系结构内识别出来自不同应用的请求。
+在整个计算机体系结构内能够识别出来自不同应用的请求。
 本节基于模拟器，介绍标签机制的具体实现，
 并讨论如何该架构下实现全硬件支持的虚拟化技术，提供PARD体系结构的逻辑域抽象。
 
@@ -374,6 +373,95 @@ SAD的结构如图\ref{fig:intel-7500-sad}所示，
 实验模拟了1台四核x86服务器，共享4MB 16路的处理器末级缓存与8GB的DDR3内存，
 服务器上提供4个IDE控制器，每个控制器上挂载2个磁盘。
 完整的模拟器的配置与架构参见第\ref{chap:impl:simulator}节。
+
+
+%%% ---- cut from chap07 ---- tobe merged
+%\section{PARD模拟器}
+%\label{chap:impl:simulator}
+
+PARD模拟器是基于gem5\cite{binkert_gem5_2011}开发的时钟精确（cycle-accurate）
+体系结构模拟器\footnote{PARD-gem5模拟器已在LGPL协议下开源，地址https://github.com/fsg-ict/PARD-gem5}，
+它使用x86指令集与Classic Memory内存模型，
+能够支持atomic、timing-simple和detail三种仿真模型。
+它能够模拟1台四核x86服务器，具体配置参数如表\ref{tab:pard-sim-setup}所示，
+主要包括：
+处理器核使用乱序四发射，工作频率为2GHz，具有分离的指令与数据缓存，容量均为64KB；
+4个处理器核共享4MB的末级缓存（16路组相连）和1个DDR3内存控制器，内存容量为8GB；
+在I/O方面，服务器提供4个IDE控制器，每个控制器上挂载2个磁盘。
+
+模拟器在处理器核上增加了标签寄存器，并扩展了模拟器中的请求（packet）类型，
+实现应用标签的传播。
+在处理器末级缓存、内存控制器与IDE控制器上增加了可编程控制平面，
+并对硬件资源数据平面所提供的功能进行管理，
+表\ref{tab:pard-sim-cp}给出了3个控制平面中控制表的设计。
+该模拟器中同时模拟了基于x86体系结构的PRM，其主要配置包括：
+100MHz的x86处理器核、16MB内存、32MB存储、串口和以太网控制器，
+以及用于控制平面适配器。
+控制平面网络基于gem5模拟器中总线逻辑实现，连接以上3个控制平面到PRM的控制平面适配器。
+PRM上运行经过裁剪的Linux系统，基于内核版本2.6.28.4和Busybox\cite{busybox}实现。
+
+该模拟器能够模拟PARD体系结构的关键特性，实现将一台PARD服务器划分为最多4个逻辑域，
+并在其中运行未经修改的Gentoo Linux（内核版本2.6.28.4），
+以及CloudSuite\cite{Ferdman:2012:cloudsuite}的部分组件，如memcached\cite{memcached}。
+
+\begin{table}[ht]
+  \centering
+  \begin{minipage}[t]{0.9\linewidth}
+  \caption{PARD模拟器参数}  
+  \label{tab:pard-sim-setup}
+    \begin{tabular*}{\linewidth}{rl}
+      \toprule[1.5pt]
+      CPU                  & 4 4-issue Out-of-Order X86 cores, 2GHz\\
+      L1-I/core            & 64KB 2-way, hit = 2 cycles \\
+      L1-D/core            & 64KB 2-way, hit = 2 cycles \\
+      Shared LLC           & 4MB 16-way, hit = 20 cycles \\
+      \hline
+      DRAM                 & 8GB DDR3-1600 11-11-11, 4Gbit chip (Micron MT41J512M8) \\
+                           & 1 channel, 2 ranks/channel, 8 banks/Rank \\
+                           & Burst Length = 8, Row buffer = 1KB \\
+                           & tCK=1.25ns, tRCD = 13.75ns, tCL = 13.75ns, tRP = 13.75ns, tRAS = 35ns, \\
+                           & tRRD = 6ns \\
+      \hline
+      Disks                & 4-channel IDE controller, 8 disks \\
+      \hline
+      Platform             & 100MHz X86 core, 16MB DRAM, 32MB Flash Storage \\
+      Resource             & 1 Ethernet adaptor  \\
+      Manager              & 4 control plane adaptors (CPA) \\
+      (PRM)                & Firmware: tailored Linux kernel 2.6.28.4 with Busybox \cite{busybox} \\
+      \hline
+      Server OS            & Gentoo Linux with kernel 2.6.28.4 \\
+      \hline
+      Workloads            & memcached \cite{memcached}, SPEC-CPU 2006 \cite{cpu2006} \\
+                           & MicroBenchmark: CacheFlush \& DiskCopy \\
+      \bottomrule[1.5pt]
+    \end{tabular*}\\[2pt]
+  \end{minipage}
+\end{table}
+
+\begin{table}[ht]
+  \centering
+  \begin{minipage}[t]{0.9\linewidth}
+  \caption{PARD模拟器控制平面控制表设计}
+  \label{tab:pard-sim-cp}
+    \begin{tabular*}{\linewidth}{rl}
+      \toprule[1.5pt]
+        \textbf{Parameter Table}  &   Cache: way mask-bits                               \\
+                                  &   Memory: row-buffer mask-bits, scheduling priority, address mapping \\
+                                  &   Disk: bandwidth                                    \\
+        \hline
+        \textbf{Statistics Table} &   Cache: miss rate, capacity                         \\
+                                  &   Memory: bandwidth, latency                         \\
+                                  &   Disk: bandwidth                                    \\
+        \hline
+        \textbf{Trigger Table}    &   LLC miss rate $\Rightarrow$ way mask-bits          \\
+                                  &   Memory latency $\Rightarrow$ row-buffer mask-bits  \\
+                                  &   Memory latency $\Rightarrow$ scheduling priority   \\
+      \bottomrule[1.5pt]
+    \end{tabular*}\\[2pt]
+  \end{minipage}
+\end{table}
+
+% ---- end cut ----
 
 % 实现打标签做的事情
 如前文所述，标签机制包含2个部分，即标签的标记与传播。
@@ -453,7 +541,7 @@ PARD模拟器能够在无需软件Hypervisor支持下同时在多个逻辑域内
 \end{figure}
 
 
-\section{业界研究进展}
+\section{业界最新进展}
 \label{chap:labeladdrspace:intel-rdt}
 
 对于本章所分析的共享环境下多应用硬件资源竞争产生干扰的问题，

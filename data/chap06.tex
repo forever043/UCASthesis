@@ -4,7 +4,7 @@
 %%% TeX-master: t
 %%% End:
 
-\chapter{资源管理软件栈研究}
+\chapter{资源管理软件栈}
 \label{chap:prm}
 
 %% 数据中心管理软件要做这些事情
@@ -244,7 +244,9 @@ IPMI使用IPMB标准实现BMC控制功能的扩展，IPMB是一个基于$I^2C$�
 
 %PRM在其基础上通过控制平面与控制平面网络，将资源管理功能也增加到其中，PRM具体架构在第\ref{chap:prm:arch}节将进行详细介绍。
 
-\section{软件栈平台与架构}
+\section{PARD软件栈架构}
+
+\subsection{PRM管理模块}
 \label{chap:prm:arch}
 
 PARD使用带外管理的方式实现硬件资源的管理，
@@ -305,7 +307,7 @@ PRM上运行基于Linux操作系统的固件，使用分层的方式实现，如
 \end{figure}
 
 
-\subsection{控制平面抽象}
+\subsection{控制平面接口}
 \label{chap:prm:arch:cpabs}
 
 PRM利用linux的sysfs机制为用户（数据中心管理系统）提供控制平面的统一访问接口，
@@ -478,19 +480,20 @@ PARD体系结构提供的``\emph{trigger$\Rightarrow$action}''机制，
 \section{与数据中心结合}
 
 % 云计算三种模型
-云计算有三种模式：SaaS、PaaS、IaaS，如图\ref{fig:cloud-usage-model}所示，
-其区别在于用户需要管理的层次
+云计算有三种模式：SaaS、PaaS、IaaS，%如图\ref{fig:cloud-usage-model}所示，
+其区别在于用户需要管理的层次。
 其中IaaS用户需要管理到OS层，如OpenStack；
 PaaS用户只需要管理应用与数据，其他部分由数据中心管理，如Docker的使用模式；
 SaaS是最底层，用户直接使用不同软件组合。
 本章主要考查IaaS与PaaS两种模式。
 
-\begin{figure}[tb]
-  \centering
-  \includegraphics[width=0.8\textwidth]{swstk/cloud-usage-model}
-  \caption{云计算3种使用模式对比：IaaS、PaaS与SaaS}
-  \label{fig:cloud-usage-model}
-\end{figure}
+%% -- removed by advisor
+%%\begin{figure}[tb]
+%%  \centering
+%%  \includegraphics[width=0.8\textwidth]{swstk/cloud-usage-model}
+%%  \caption{云计算3种使用模式对比：IaaS、PaaS与SaaS}
+%%  \label{fig:cloud-usage-model}
+%%\end{figure}
 
 PARD提供的逻辑域抽象，能够很容易的实现IaaS模式，
 因为逻辑域抽象与虚拟机抽象几乎完全相同，之前几章的工作都是基于IaaS模式对PARD进行讨论。
