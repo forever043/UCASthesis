@@ -99,20 +99,81 @@ Google是最早在其数据中心实现多应用混合部署，他们的混合�
 
 \section{服务质量评价指标}
 
+性能下降程度,BubbleUP
 
 
 \section{软件服务质量保障技术}
 
+软件服务质量保障是指在不修改硬件的前提下，仅使用软件技术实现应用服务质量保障的方法。
+按照其实现原理可以为分3类，分别是基于任务调度、资源分配和执行控制，
+本节将对这3类相关工作进行介绍。
 
 \subsection{任务调度}
 
-调度的基础是对干扰进行评估。
-对干扰进行评估是一个重要工作， measuring 2012做了这样的事情，评估了不同应用之间的干扰。
+数据中心中任务众多，它们有着不同的需求，虽然前文提到应用共享资源可能会产生竞争，但也存在这样的可能，
+两个应用之间的资源需求是正交的，即两者之间不会发生竞争或竞争并不激烈，在这样的情形下，资源共享并不会带来干扰。
+以图\ref{fig:apps-corun-bubbleup}和图\ref{fig:apps-corun-measuring}为例，
+并非所有的应用组合都会产生严重的性能干扰，例如：
+图\ref{fig:apps-corun-bubbleup}中websearch与map、protobuf和sawzall三个应用混合运行时，并不会对其性能造成严重的影响；
+图\ref{fig:apss-corun-measuring}中java与其中5个应用混合运行时，性能也没有出现明显的变化。
+任务调度方法即是通过在应用中选择干扰较小的组合进行应用的混合部署，以实现应用服务质量保障。
 
-通过服务器共享，存在不同应用组合，由于干扰存在的可能，为保障关键应用QoS，通常会过量预留资源。
-但有些时候这样过量预留是没有必要的，（Bubble-up里有说明），
-在众多应用中寻找无干扰的任务组合是一个耗时工作，$O(N^2)$。
-Bubble-UP提供了一种精确预测干扰的方法，为调度提供数据基础。
+\begin{figure}[tb]
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{bg/apps-corun-bubbleup}
+  \caption{不同应用对websearch应用QoS的影响\cite{mars_bubble-up:_2011}}
+  \label{fig:apps-corun-bubbleup}
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{bg/apps-corun-measuring}
+  \caption{数据中心应用混合运行后干扰情况\cite{kambadur_measuring_2012}}
+  \label{fig:apps-corun-measuring}
+\end{minipage}
+\end{figure}
+
+要实现任务调度，首先需要了解应用对资源访问的行为，并对应用之间可能存在的干扰进行判断。
+之前一些工作\cite{}通过在隔离的机器上运行应用获得其基准性能，
+然后再与其它应用混合运行得到其性能下降，以些来获得应用之间的干扰情况。
+该方法的主要问题在于其离线分析的方式只能对行为稳定、长时运行的应用有效，
+而数据中心应用具有多样性，而且存在大量短作业，无法使用该方法进行干扰预测。
+同时该方法在扩展性方面也存在问题：当应用数量$N$增加时，
+需要进行的实验次数是以$O(N^2)$复杂度增长的，这在数据中心海量应用的场景下并不适用。
+
+另一些研究使用共享内存资源访问的激烈程度对应用进行分类，
+并以此为依据进行任务调度\cite{}，该方案将复杂度降低到$O(N)$，
+其代价是降低了干扰预测的精度，这些工作通常只能对应用进行粗略的分类，
+例如划分为``激烈''与``不激烈''两类，
+而不能精确的预测出两个应用混合后会出现何种程度的性能下降。
+而精确的干扰预测对于任务调度来说是十分必要的，基于此需求，
+Bubble-Up\cite{mars_bubble-up:_2011}提出一种精确预测2个应用混合运行后性能干扰程度的方法，
+如图\ref{fig:bubble-up-overview}所示，该方法分为2部分：
+1）评估应用对内存子系统产生的压力，以pressure参数表示；
+2）评估不同压力下应用的性能下降程度，以sensitivity曲线表示。
+通过以上2组参数，即可量化的描述应用与内存子系统之间的关系。
+通过1个应用的pressure参数查询另1个应用的sensitivity曲线，
+即可精确的得出2个应用混合运行后的性能干扰情况，以此为指导实现QoS-aware的任务调度策略。
+Bubble-Up虽然解决的扩展性与精确预测的问题，但它依然是基于离线分析的方式，
+无法直接应用在数据中心场景，只能应用在负载相对稳定的场景。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{bg/bubble-up-overview}
+  \caption{BubbleUp\cite{mars_bubble-up:_2011}原理示意图}
+  \label{fig:bubble-up-overview}
+\end{figure}
+
+针对在线的应用干扰分析需求，
+Kambadur等人提出了一种数据中心范围内实时干扰评估方法\cite{kambadur_measuring_2012}，
+其流程如下：
+1）通过性能收集工作实时采集数据中心服务器性能指标并汇总；
+2）使用基于统计的性能指标（如平均IPC或IPC中位数）对应用性能干扰情况进行判断；
+3）利用性能采样中的时间戳信息，获取应用混合运行情况；
+4）综合2）和2）的结果，对应用之间的干扰进行分类。
+该方法最终得到的干扰分类信息，是实时的、数据中心全局范围的应用干扰情况，
+可以作为任务调度系统执行任务调度与迁移的依据。
+
 
 
 之前的工作都是针对长时运行的应用，通过对应用进行分析建模，得出其干扰特性，然后进行调度，
@@ -125,12 +186,14 @@ Quasar用户指定的资源不准确，造成资源浪费。通过用户指定�
 
 收益成本低过低， 当前数据中心\cite{mesos,openstack}并没有采用这种基于QoS的调度，而是使用简单的基于资源的调度。更多需要考虑在这样的场景下如何保障应用服务质量。
 
+
+\subsection{资源分配}
+cgroup, page-coloring, CAT
+
+
 \subsection{执行控制}
 ReQoS, DVFS, Bubble-Flux
 
-
-\subsection{资源隔离}
-cgroup, page-coloring, CAT
 
 
 
