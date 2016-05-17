@@ -618,18 +618,19 @@ PARD的标签机制会在数据通路上产生额外的资源开销，对应到F
   \label{tab:pard-cp-resource}
   \begin{tabular*}{\linewidth}{rcccccccc}
     \toprule[1.5pt]
-          & \multicolumn{4}{c}{\textbf{Slice LUT}}  & \multicolumn{4}{c}{\textbf{Slice Register}} \\
+          & \multicolumn{4}{c}{\textbf{Slice LUT (Logic \& Memory)}}  & \multicolumn{4}{c}{\textbf{Flip Flop}} \\
           & 参数表 & 状态表 & 触发表 & 小计（\%）   & 参数表 & 状态表 & 触发表 & 小计（\%）       \\
     \midrule[1pt]
-     Core &     94 &    806 &    202 & 1102(0.90\%) &    104 &   1296 &    109 & 1509(1.10\%)      \\
-    Cache &     51 &   1030 &    203 & 1284(1.04\%) &     96 &   1874 &    109 & 2079(1.51\%)      \\
-      Mem &    291 &    487 &    169 &  947(0.77\%) &    320 &    768 &    109 & 1197(0.87\%)      \\
-      I/O &    508 &    487 &    169 & 1164(0.95\%) &    560 &    768 &    109 & 1437(1.04\%)      \\
+     Core &     94 &    806 &    202 & 1102(0.86\%) &    104 &   1296 &    109 & 1509(0.91\%)      \\
+    Cache &     51 &   1030 &    203 & 1284(1.01\%) &     96 &   1874 &    109 & 2079(1.25\%)      \\
+      Mem &    291 &    487 &    169 &  947(0.74\%) &    320 &    768 &    109 & 1197(0.72\%)      \\
+      I/O &    508 &    487 &    169 & 1164(0.91\%) &    560 &    768 &    109 & 1437(0.87\%)      \\
     \hline
-   全系统 & \multicolumn{4}{c}{122,960}             & \multicolumn{4}{c}{137,797}                  \\
+   全系统 & \multicolumn{4}{c}{127,486}             & \multicolumn{4}{c}{165,707}                  \\
     \bottomrule[1.5pt]
   \end{tabular*}\\[2pt]
 \end{table}
+
 
 \subsubsection{数据平面资源开销}
 

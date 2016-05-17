@@ -91,16 +91,57 @@ Google是最早在其数据中心实现多应用混合部署，他们的混合�
 前文所提到的Google将离线数据中心资源利用率提高到75\%，
 应用混合部署在其中起到了关键作用。
 资源共享能够提高利用率，但它也带来了应用之间由于资源竞争产生的干扰。
-研究\cite{}中发现虚拟化会带来严重的性能开销，\cite{}发现这些技术对干扰隔离不好，
-会造成应用失去响应，IBM发现虚拟化虽然提高利用率降低硬件成本，
-但性能下降所造成的收益下降，使得虚拟化成本要高于直接运行\cite{}。
+一些研究发现，在压力测试的场景下，
+现有的虚拟化技术并不能隔离异常虚拟机\cite{Matthews:2007}，
+这可能会对正常虚拟机的执行造成严重的影响。
+另一个研究\cite{Reddy:2014}对虚拟机和真机的性能差别进行测试，
+其结果如图\ref{fig:reddy-vmm-eval}所示，
+即使是虚拟化开销最小的VMWare ESXi也会给程序带来平均5.4\%的性能下降，
+性能下降最严重的Encryption benchmark甚至有18\%的性能下降；
+Xen和KVM平均也分别有8.8\%和19.8\%的性能下降。
 这也是为什么Google并没有在其在线应用数据中心采取相同的资源共享的原因。
 
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.8\textwidth]{bg/reddy-vmm-eval}
+  \caption{不同虚拟化场景下CPU性能对比\cite{Reddy:2014}}
+  \label{fig:reddy-vmm-eval}
+\end{figure}
 
-\section{服务质量评价指标}
 
-性能下降程度,BubbleUP
+另一方面，
+IBM在其SoftLayer云平台中对采用虚拟机与物理机运行3年web应用后的成本与性能进行统计\cite{Stadtmueller:2015}，
+结果如表\ref{tab:ibm:vmm-eval}所示。
+可以看到使用虚拟化技术虽然节省了基础设施的开销，但却带来了额外的软件费用与性能下降，
+使得单位负载开销反而不如在物理机上直接部署相应的web应用，
+这说明当前虚拟化技术并不是非常完善的资源隔离技术，仍有改进空间。
 
+\begin{table}[t]
+  \centering
+  \begin{minipage}[t]{0.8\linewidth}
+  \caption{在IBM SoftLayer平台上运行web应用的3年成本与性能对比\cite{Stadtmueller:2015}}
+  \label{tab:ibm:vmm-eval}
+  \begin{tabular*}{\linewidth}{lrr}
+    \toprule[1.5pt]
+                       & \textbf{使用虚拟化技术} & \textbf{不使用虚拟化技术} \\
+    \midrule[1pt]
+    基础设施	       &                \$34,746 &                  \$51,840 \\
+    数据传输(Internet) &                \$62,366 &                  \$68,609 \\
+    软件费用	       &               \$137,760 &                  \$48,216 \\
+    成本总计	       &               \$234,872 &                 \$168,665 \\
+    最大RPS	       &                  19,833 &                    21,765 \\
+    平均RPS	       &                   3,314 &                     3,628 \\
+    单位负载开销       &                \$71/RPS &                  \$46/RPS \\
+    \bottomrule[1.5pt]
+  \end{tabular*}
+  \end{minipage}
+\end{table}
+
+%
+%\section{服务质量评价指标}
+%
+%性能下降程度,BubbleUP
+%
 
 \section{软件服务质量保障技术}
 
@@ -275,9 +316,9 @@ QoS Monitor监控高优先级应用的执行，当发生QoS违例时，
 以上2个解决方案，其本质是使用source throttling的方式控制应用的执行，
 并以此控制干扰的发生，实现服务质量的保障。
 其他一些工作\cite{mars_contention_2010, herdrich_rate-based_2009, ebrahimi:2010}
-也采取了这些该思路，只是在throttling方案选择上有所不同，
+也采取了该思路，只是在throttling方案选择上有所不同，
 Mars等人\cite{mars_contention_2010}提出一种竞争感知的运行时环境CARE，
-通过该运行时环境实现throttling；
+通过运行时环境实现throttling；
 Herdrich等人\cite{herdrich_rate-based_2009}利用硬件提供的DVFS
 （dynamic voltage and frequency scaling）与clock modulation技术实现throttling。
 Ebrahimi等人\cite{ebrahimi:2010}利用throttling机制实现可配置的内存子系统，
@@ -335,9 +376,9 @@ Cook等人\cite{cook_hardware_2013}评估了缓存容量划分对混合运行应
 
 与软件服务质量保障技术相比，在硬件层次能够对资源拥有更多的控制，实现细粒度的管理。
 但其缺点也非常明显，相比软件修改，硬件修改的复杂度更高，同时周期也更长。
-本节将以Cache和Memory两个对应用性能影响最大的资源为起点，
-介绍硬件层次上的服务质量保障的技术。
-
+已有的硬件服务质量保障技术主要集中在Cache和Memory两个对应用性能影响最大的资源上，
+通过Cache容量划分、访存调度与划分的方式，实现应用之间的隔离，
+进而实现应用服务质量保障。
 
 \subsection{Cache上的服务质量保障技术}
 
@@ -377,11 +418,13 @@ Vantage并没有划分全部的缓存容量，而且利用部分未划分的缓�
 容量划分策略是多应用共享缓存时需要解决的另一个重要问题，策略分为静态划分与动态划分两类。
 Stone等人提出了最优静态划分方案\cite{stone:1992}，但由于需要获得应用在不同容量下的性能信息，
 因此该方案只能用作评估基准，而无法应用到真实场景中。
-同时应用在执行过程中，对cache的需求会不断发生变化，
+同时应用在执行过程中，对Cache的需求会不断发生变化，
 静态划分无法捕捉到这一个变化，所以动态划分的性能可能会优于``最优静态划分''。
-最早的动态划分策略\cite{suh:2004}根据最近命中的请求在cache set中的位置来估计应用当前cache的使用情况。
-而UCP\cite{qureshi_utility-based_2006}提供了一种低开销的cache容量划分策略，
-其容量划分依据是基于应用当前的实际cache容量需求，即将容量分配给能够带来最收益（缺失率降低最大）的应用。
+最早的动态划分策略\cite{suh:2004}
+根据最近命中的请求在cache set中的位置来估计应用当前Cache的使用情况。
+而UCP\cite{qureshi_utility-based_2006}提供了一种低开销的Cache容量划分策略，
+其容量划分依据是基于应用当前的实际Cache容量需求，
+即将容量分配给能够带来最收益（缺失率降低最大）的应用。
 
 基于Vantage与UCP提供的缓存容量划分机制与策略，
 Jigsaw\cite{Jigsaw:2013}使用软件定义Cache的方式，实现灵活的Cache划分与管理，解决多应用之间在Cache层次的干扰问题；
@@ -390,34 +433,60 @@ Ubik\cite{kasture_ubik:_2014}利用延迟敏感型应用瞬时性的特征，利
 
 \subsection{内存上的服务质量保障技术}
 
-针对内存控制器上的竞争，
+当前系统中使用的内存控制器，其调度策略是针对单线程环境进行优化，
+不能很好的满足数据中心这种多应用场景的需求。
+例如典型的针对单线程优化的访存调度策略FR-FCFS，
+能够满足单线程应用带宽与延迟的需求；
+在多应用场景下，其先来先服务（FCFS）特性使得访存密集型的低优先级应用获得更高的调度优先级，
+而非访存密集型高优先级应用会被低优先级应用阻塞，造成优先级反转。
+
+现有工作主要从内存通道划分与公平调度策略2个方向去解决该问题。
 Muralidhara等人提出了一种应用感知的内存通道划分技术MCP\cite{muralidhara_reducing_2011}，
 用于降低应用在内存子系统的干扰。
-以CMU的Onur Mutlu为代表的一些研究提出一系列调度算法\cite{mutlu_stall-time_2007,
-mutlu_parallelism-aware_2008, kim_atlas:_2010, kim_thread_2010}
-以缓解内存控制器的不公平问题，从而提高系统吞吐量以及服务质量。
-但这些算法是固化的，并不能针对某个应用进行调节，灵活性较差。
 
-%这件事情，硬件不能独立完成，因为它没有应用的信息，需要软硬件协同，在下节介绍。
+在公平调度方面，Nesbit等人提出了基于公平排队的访存调度策略\cite{Nesbit:2006}，
+它能保障无论内存控制器当前压力状态如何，每个线程都能获得其分配的访存带宽，
+Akesson等人提出一种内存控制器的设计\cite{Akesson:2007}，
+它能够为应用提供最小带宽与最大延迟的服务质量保障。
+Mutlu等人提出基于stall-time的公平调度算法\cite{mutlu_stall-time_2007}，
+保证不同线程访存的公平性；其后续工作\cite{mutlu_parallelism-aware_2008}
+提出了批量调度的方法，在防止出现访存饥饿的同时保障线程间的公平。
+与常规调度策略不同，
+Bitirgen等人提出通过机器学习方法实现内存调度策略\cite{Bitirgen:2008}，
+以达到最大访存吞吐的目的。
+Kim等人针对多内存控制器场景，
+设计了一种可扩展的访存调度策略以提升系统访存吞吐\cite{kim_atlas:_2010}；
+他的另一个工作\cite{kim_thread_2010}提出面向thread-cluster的访存调度策略，
+在其中同时考虑访存吞吐与线程间公平。
+
+总结以上内存调度策略，它们分别面向各自不同的应用场景，采取特定的优化，
+在数据中心通用场景下，任何单一的调度策略都不能满足应用需求。
+因此提供统一的策略管理机制，实现运行时切换，
+是解决当前内存调度策略目标场景单一的一个方案。
+
+
+%\section{服务质量保障框架}
 %
-%但这些算法是固化的,并不能针对某个应用进行调节,灵活性较差。
+%因为软件知道应用需求，硬件能够对资源进行细粒度控制，QoS保障需要软硬件协同。
+%在实现QoS策略与机制前，需要首先定义QoS指标。Iyer等人cite{}提出了3种QoS目标，分别是： 资源用量指标（Resource Usage Metrics，RUM），定义应用的资源使用，如Cache容量即为RUM指标；资源性能指标（Resource Performance  Metrics，RPM），定义资源性能，如Cache缺失率；整体性能指标（Overall Performance Metrics，OPM），指示程序的整体性能，如IPC。大多数早期QoS工作\cite{}都使用以IPC为代表的OPM作为QoS指标。针对数据中心场景，OPM中需要额外增加Tail-Latency指标，它是反映延迟敏感型在线应用性能的主要指标，工作如\cite{}都使用它作为QoS指标。资源利用率实际对应的是RUM指标，因此本文所要解决的问题就是实现RUM与OPM的平衡。
 %
-%硬件区分，PARD提出标签化地址空间
-
+%CoQoS是目前对QoS保障框架描述最为完整的工作，其提出QoS保障要分为三个部分，分别是CoS Assignment、CoS Mapping、和CoS-Based Resource Mgmt。其中第一阶段用于，XXX；第二阶段用于XXX；第三阶段用于XXX。对比本文工作，本文所提出的PARD体系结构以逻辑域为粒度保障QoS，通过标签寄存器标记硬件请求，使用控制平面进行标签与资源分配映射，使用PRM集中式管理所有资源。
 %
-%硬件资源统一管理，控制平面
-
-
-\section{服务质量保障框架}
-
-因为软件知道应用需求，硬件能够对资源进行细粒度控制，QoS保障需要软硬件协同。在实现QoS策略与机制前，需要首先定义QoS指标。Iyer等人cite{}提出了3种QoS目标，分别是： 资源用量指标（Resource Usage Metrics，RUM），定义应用的资源使用，如Cache容量即为RUM指标；资源性能指标（Resource Performance  Metrics，RPM），定义资源性能，如Cache缺失率；整体性能指标（Overall Performance Metrics，OPM），指示程序的整体性能，如IPC。大多数早期QoS工作\cite{}都使用以IPC为代表的OPM作为QoS指标。针对数据中心场景，OPM中需要额外增加Tail-Latency指标，它是反映延迟敏感型在线应用性能的主要指标，工作如\cite{}都使用它作为QoS指标。资源利用率实际对应的是RUM指标，因此本文所要解决的问题就是实现RUM与OPM的平衡。
-
-CoQoS是目前对QoS保障框架描述最为完整的工作，其提出QoS保障要分为三个部分，分别是CoS Assignment、CoS Mapping、和CoS-Based Resource Mgmt。其中第一阶段用于，XXX；第二阶段用于XXX；第三阶段用于XXX。对比本文工作，本文所提出的PARD体系结构以逻辑域为粒度保障QoS，通过标签寄存器标记硬件请求，使用控制平面进行标签与资源分配映射，使用PRM集中式管理所有资源。
-
-Heracles是最相似的，
-
-Rafique提出一种OS/Cache协同的方案。
-
+%在QoS保障框架方面，
+%Rafique等人提出了一种操作系统驱动的缓存容量划分机制\cite{Rafique:2006:ASO}，
+%通过标记Cache访问请求来允许操作系统根据标记对Cache容量划分进行管理。
+%Sharifi等人进一步提出了一种基于反馈的控制架构\cite{sharifi_mete:_2011}，
+%以实现端到端的片上资源管理。
+%Ravi Iyer提出了一种保障CMP体系结构上缓存Qos的管理框架CQoS\cite{iyer_cqos:_2004}，
+%将QoS工作分为3个阶段，即优先级分类（Priority Classification）、
+%优先级分配（Priority Assignment）和优先级实现（Priority Enforcement）。
+%然而，该工作只设计了QoS保障的框架，而并没有详细描述具体策略和软硬件支持。
+%后续的工作\cite{iyer_qos_2007, li_coqos:_2011, li_dynamic_2012}实现了
+%基于class-of-service的QoS架构（CoQoS），通过为片上请求标记优先级的方式，
+%实现基于优先级的Cache/DRAM/NoC请求调度。
+%
+%Heracles是最相似的，
+%
 
 \section{计算机网络与服务质量}
 \label{sec:background:sdn}
@@ -454,6 +523,22 @@ Rafique提出一种OS/Cache协同的方案。
 %\end{figure}
 
 
+\section{本章小结}
+
+针对数据中心面临应用服务质量与资源利用率相冲突的问题，
+本章从服务器资源共享和软、硬件服务质量保障机制3个角度介绍了相关研究工作。
+应用之间共享资源竞争引起的性能干扰是数据中心面临问题的主要原因，
+而共享的软硬件资源的竞争在整个系统栈中存在，
+表\ref{tab:contention}汇总了不同层次上可能存在的竞争点，
+以及在不同层次上消除竞争点的相关工作。
+从现有技术来看，单节点内服务质量保障技术的不足，导致节点内应用相互干扰严重，
+已经成为目前数据中心整体服务质量保障的短板，是成为长尾延迟现象的主要因素之一。
+单纯从软件或硬件层次无法根本解决该问题，而是需要跨层次协同设计。
+而软硬件协同设计的关键在于``应用如何表达服务质量（QoS）目标并且让底层的硬件、操作
+系统以及虚拟层共同工作来保障它们''\cite{21st_architecture}。
+本文后续章节将围绕该问题讨论如何设计一种新型的体系结构，
+通过软硬件协同的方式解决数据中心当前面临的这一难题。
+
 \begin{table}[tb]
   \centering
   \caption{资源管理与服务质量保障相关工作中识别出的竞争点}
@@ -479,22 +564,6 @@ Rafique提出一种OS/Cache协同的方案。
     \bottomrule[1.5pt]
   \end{tabular}
 \end{table}
-
-\section{本章小结}
-
-针对数据中心面临应用服务质量与资源利用率相冲突的问题，
-本章从服务器资源共享和软、硬件服务质量保障机制三个角度介绍了相关研究工作。
-应用之间共享资源竞争引起的性能干扰是数据中心面临问题的主要原因，
-而共享的软硬件资源的竞争在整个系统栈中存在，
-表\ref{tab:contention}汇总了不同层次上可能存在的竞争点，
-以及在不同层次上消除竞争点的相关工作。
-从现有技术来看，单节点内服务质量保障技术的不足，导致节点内应用相互干扰严重，
-已经成为目前数据中心整体服务质量保障的短板，是成为长尾延迟现象的主要因素之一。
-单纯从软件或硬件层次无法根本解决该问题，而是需要跨层次协同设计。
-而软硬件协同设计的关键在于``应用如何表达服务质量（QoS）目标并且让底层的硬件、操作
-系统以及虚拟层共同工作来保障它们''\cite{21st_architecture}。
-本文后续章节将围绕该问题讨论如何设计一种新型的体系结构，
-通过软硬件协同的方式解决数据中心当前面临的这一难题。
 
 
 
@@ -574,17 +643,5 @@ Vantage\cite{sanchez_vantage:_2011}基于该缓存设计实现了一种细粒度
 其基本方法是当正在运行的低优先级任务由于资源竞争争而干扰了高优先级任务的性能时，
 就减缓核心的处理速率，通过请求抑制的方法缓解低优先级任务对共享资源的竞争。
 
-在QoS保障框架方面，
-Rafique等人提出了一种操作系统驱动的缓存容量划分机制\cite{Rafique:2006:ASO}，
-通过标记Cache访问请求来允许操作系统根据标记对Cache容量划分进行管理。
-Sharifi等人进一步提出了一种基于反馈的控制架构\cite{sharifi_mete:_2011}，
-以实现端到端的片上资源管理。
-Ravi Iyer提出了一种保障CMP体系结构上缓存Qos的管理框架CQoS\cite{iyer_cqos:_2004}，
-将QoS工作分为3个阶段，即优先级分类（Priority Classification）、
-优先级分配（Priority Assignment）和优先级实现（Priority Enforcement）。
-然而，该工作只设计了QoS保障的框架，而并没有详细描述具体策略和软硬件支持。
-后续的工作\cite{iyer_qos_2007, li_coqos:_2011, li_dynamic_2012}实现了
-基于class-of-service的QoS架构（CoQoS），通过为片上请求标记优先级的方式，
-实现基于优先级的Cache/DRAM/NoC请求调度。
 
 \fi

@@ -63,15 +63,20 @@
      使用软件编程的方式对硬件资源进行统一管理，
      包括基于``控制平面''的策略可编程和``数据平面''的机制可编程。
 
-  3）提出可编程体系结构硬件资源管理的软件接口，实现本地资源的灵活管理。
-     本文利用Linux的sysfs机制，在集中式的资源管理模块中将``控制平面''和
+  3）提出本地资源带外管理的方式，将业务与资源管理分享，
+     设计可编程体系结构硬件资源管理的软件接口，实现本地资源的灵活管理。
+     利用Linux的sysfs机制，在集中式的资源管理模块中将``控制平面''和
      ``数据平面''抽象为文件，为用户提供基于文件的硬件资源编程接口。
      同时提出了``\emph{trigger$\Rightarrow$action}''机制实现硬件资源的实时监控与反馈调节，
      以及不同资源之间的协同管理。
 
   4）构建资源管理可编程体系结构实验平台，包括基于gem5的模拟器与FPGA原型系统，
      其中模拟器已经在LGPL协议下开源。
-     \textbf{增加实验结果说明}
+     FPGA原型系统验证结果表明，通过标签化地址空间与可编程硬件资源共享管理方法，
+     PARD体系结构能够为计算机带来应用区分化服务、性能隔离与资源管理可编程特性，
+     同时也不会在系统中引入过大的性能开销与资源开销。
+     基于以上这些硬件机制与软件栈及适当的资源管理策略，
+     PARD体系结构能够进行高效的资源管理，实现数据中心资源利用率与应用服务质量的平衡。
 \end{cabstract}
 
 \ckeywords{数据中心, 服务质量, 资源利用率, 虚拟化, 资源管理, 可编程}
@@ -79,18 +84,19 @@
 \begin{eabstract}
   Contemporary data centers confront with challenges in
   managing the trade-offs between resource utilization and
-  applications’ quality of services (QoS). Co-locate
-  multiple workloads into a single server can achieve high
-  utilization. But the unmanaged contention for shared
-  hardware resources, as well as shared software resources,
-  may cause unpredictable performance variability. To
-  guarantee QoS of latency-critical online services, data
-  center operators or developers tend to avoid sharing by
+  applications’ quality of services (QoS). 
+  Co-locate multiple workloads into a single server can
+  achieve high utilization.
+  But the unmanaged contention for shared hardware resources,
+  as well as shared software resources,
+  may cause unpredictable performance variability.
+  To guarantee QoS of latency-critical online services,
+  data center operators or developers tend to avoid sharing by
   either dedicating resources or exaggerating reservations
-  for online services in shared environments, which result
-  in lower utilization, only 6\% to 12\%.
+  for online services in shared environments,
+  which result in lower utilization, only 6\% to 12\%.
 
-
+  
 \end{eabstract}
 
 \ekeywords{datacenter, QoS, utilization, virtualization, resource management, programmable}
