@@ -63,7 +63,7 @@
      使用软件编程的方式对硬件资源进行统一管理，
      包括基于``控制平面''的策略可编程和``数据平面''的机制可编程。
 
-  3）提出本地资源带外管理的方式，将业务与资源管理分享，
+  3）提出本地资源带外管理的方式，将业务与资源管理分离，
      设计可编程体系结构硬件资源管理的软件接口，实现本地资源的灵活管理。
      利用Linux的sysfs机制，在集中式的资源管理模块中将``控制平面''和
      ``数据平面''抽象为文件，为用户提供基于文件的硬件资源编程接口。
@@ -96,7 +96,54 @@
   for online services in shared environments,
   which result in lower utilization, only 6\% to 12\%.
 
+  Unable to distinguish different applications,
+  which makes it is impossible to achieve the performance isolation between applications for
+  current computer architecutre 
+  Current computer architecture can not distinguish different applications,
+  which make it unable to achieve the performance isolation between applications.
+  The key reason root cause of the problem is that the current computer architecture 
+  cannot distinguish applications, furthermore cannot do performance isolation 
+  which results in contentions on shared resources among applications. 
+  Due to the large amount of applications of diverse demands 
+  in data center, the computer architecture needs to be redesigned 
+  to support differentiated services, better performance isolation, 
+  flexible programming interfaces, strong control over resources and allocation on demand.
   
+  Focuses on the trade-off between resource utilization and applications'
+  quality of services, this dissertation studies the architecture for quality of service
+  in data centers. The main works and contributions include:
+
+  (1) A ``Labeled Address Space'' abstraction is proposed
+      for application distinguish purpose.
+      As the emergence of virtualization and cloud computing technologies,
+      the requirements of multi-tenant isolation can not be fulfiled by the virutal
+      address space abstraction introduced from multi-process.
+      Lots of hardware mechanisms, such as EPT, I/O MMU and SR-IOV,
+      are proposed to enhance the existing architecture for better performance isolation.
+      Essentially, these mechanisms try to add an extra layer to existing virtual address
+      space, which successfully achieve the functional isolation.
+      But these performance related resources,
+      such as shared last level cache, memory controller,
+      are not isolated at all.
+      By tagging all the requests in computer with an uniformed label introduced by
+      labeled address space, the shared hardware-resources can support
+      differentiated service according to the tagged label.
+
+  (2) A unified resource management method which makes ``control plane'' and
+      ``data plane'' abstractions for shared hardware resources.
+      It manages all shared hardware resources in a programmable manner through
+      strategy programmable offered by control plane and
+      mechanism programmable realized by data plane.
+
+  (3) A out-of-band resource management architecture,
+      which seperate management from business.
+      It expose the programmable resource management abilities of hardware through
+      sysfs mechanism provided by linux.
+
+  (4) A prototype of the proposed architecture PARD, including a gem5-based simulator
+      and a FPGA prototype.
+      
+
 \end{eabstract}
 
 \ekeywords{datacenter, QoS, utilization, virtualization, resource management, programmable}

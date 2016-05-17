@@ -529,9 +529,10 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 \subsection{基于PARD模拟器的评测}
 
 本节在第\ref{chap:labeladdrspace:nohype}节所建立的模拟器基础上，
-按照本章所述方法对处理器末级缓存和磁盘控制器进行改造，包括：
-1）在处理器末级缓存中增加缓存容量划分功能，
-2）在磁盘控制器中增加基于带宽划分的调度功能。
+按照本章所述方法对处理器末级缓存、内存控制器和磁盘控制器进行改造，包括：
+1）在处理器末级缓存中增加缓存容量划分功能；
+2）在内存控制器中增加控制平面，实现地址映射；
+3）在磁盘控制器中增加基于带宽划分的调度功能。
 并为它们增加控制平面，同时在模拟器中模拟了基于X86-SoC的PRM，
 实现对这2个硬件资源的集中式管理。
 表\ref{tab:pard-sim-cp}给出了3个控制平面中控制表的设计。
@@ -545,17 +546,17 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 能够通过PRM调整4个逻辑域对处理器末级缓存与磁盘控制器的资源分配，
 本节将使用该模拟器验证控制平面对资源分配的控制（磁盘控制器）、
 以及``\emph{trigger$\Rightarrow$action}''机制的效果（处理器末级缓存）。
-%更多模拟器的实现细节将在第\ref{chap:impl:simulator}节中进行介绍。
 
+\iffalse
 \begin{table}[ht]
   \centering
-  \begin{minipage}[t]{0.9\linewidth}
+  \begin{minipage}[t]{0.75\linewidth}
   \caption{PARD模拟器控制平面控制表设计}
   \label{tab:pard-sim-cp}
     \begin{tabular*}{\linewidth}{rl}
       \toprule[1.5pt]
         \textbf{Parameter Table}  &   Cache: way mask-bits                               \\
-                                  &   Memory: row-buffer mask-bits, scheduling priority, address mapping \\
+                                  &   Memory: address mapping                            \\
                                   &   Disk: bandwidth                                    \\
         \hline
         \textbf{Statistics Table} &   Cache: miss rate, capacity                         \\
@@ -563,8 +564,26 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
                                   &   Disk: bandwidth                                    \\
         \hline
         \textbf{Trigger Table}    &   LLC miss rate $\Rightarrow$ way mask-bits          \\
-                                  &   Memory latency $\Rightarrow$ row-buffer mask-bits  \\
-                                  &   Memory latency $\Rightarrow$ scheduling priority   \\
+%                                  &   Memory latency $\Rightarrow$ row-buffer mask-bits  \\
+%                                  &   Memory latency $\Rightarrow$ scheduling priority   \\
+      \bottomrule[1.5pt]
+    \end{tabular*}\\[2pt]
+  \end{minipage}
+\end{table}
+\fi
+
+\begin{table}[ht]
+  \centering
+  \begin{minipage}[t]{0.9\linewidth}
+  \caption{PARD模拟器控制平面控制表设计}
+  \label{tab:pard-sim-cp}
+    \begin{tabular*}{\linewidth}{rlll}
+      \toprule[1.5pt]
+             & \textbf{Parameter Table} & \textbf{Statistics Table} & \textbf{Trigger Table} \\
+      \midrule[1pt]
+       Cache & way mask-bits            & miss rate, capacity       & miss rate $\Rightarrow$ way mask-bits \\
+      Memory & address mapping          & bandwidth, latency        & \emph{N/A}         \\
+        Disk & bandwidth quota          & bandwidth                 & \emph{N/A}         \\
       \bottomrule[1.5pt]
     \end{tabular*}\\[2pt]
   \end{minipage}
@@ -579,13 +598,6 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 一台4核的PARD服务器被划分为4个逻辑域，其中LDom\#0中运行延迟敏感型应用memcached，
 其他3个逻辑域中运行批处理应用，考察资源共享对延迟敏感型应用性能的影响。
 
-\begin{figure}[tb]
-  \centering
-  \includegraphics[width=0.5\textwidth]{hwres/hwres-sim-config}
-  \caption{``\emph{trigger$\Rightarrow$action}''机制验证实验配置}
-  \label{fig:hwres-sim-config}
-\end{figure}
-
 由于模拟器本身的模拟速度非常慢，增加网络环境模拟会进一步降低模拟速度，
 因此在实验时将memcached服务器与客户端运行在同一个逻辑域中，它们共享一个CPU核心。
 虽然服务器和客户端会在同一个逻辑域内发生资源竞争，
@@ -598,6 +610,29 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 然后使用Out-Of-Order（O3）模型恢复该checkpoint，最后的实验评估使用O3模型进行。
 受到模拟速度的影响，本实验只模拟了memcached应用的3秒钟执行（花费大约30个小时），
 其中第1秒是warm-up过程，后2秒才被用于评估。
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.5\textwidth]{hwres/hwres-sim-config}
+  \caption{``\emph{trigger$\Rightarrow$action}''机制验证实验配置}
+  \label{fig:hwres-sim-config}
+\end{figure}
+
+\begin{figure}[b]
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-resptime}
+  \caption{模拟器memcached 95\%-tail延迟示意图}
+  \label{fig:pardsim:memcached-resptime}
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}
+  \centering
+  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-20krps-missrate}
+  \caption{模拟器memcached末级缓存命中率变化（20KRPS）}
+  \label{fig:pardsim:memcached-20krps-missrate}
+\end{minipage}
+\end{figure}
+
 
 图\ref{fig:pardsim:memcached-resptime}展示了在不同请求负载下memcached的长尾响应时间。
 当memcached单独运行时（图中solo曲线），它能够满足22.5KRPS的请求负载，
@@ -630,21 +665,6 @@ memcached的性能仍然没有受到严重的影响。
 这证明``\emph{trigger$\Rightarrow$action}''机制能够利用PARD提供的硬件资源管理功能，
 实现服务器资源利用率与应用服务之间的平衡。
 
-\begin{figure}[tb]
-\begin{minipage}{0.48\textwidth}
-  \centering
-  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-resptime}
-  \caption{模拟器memcached 95\%-tail延迟示意图}
-  \label{fig:pardsim:memcached-resptime}
-\end{minipage}\hfill
-\begin{minipage}{0.48\textwidth}
-  \centering
-  \includegraphics[height=4.5cm]{hwres/pard-sim-memcached-20krps-missrate}
-  \caption{模拟器memcached末级缓存命中率变化（20KRPS）}
-  \label{fig:pardsim:memcached-20krps-missrate}
-\end{minipage}
-\end{figure}
-
 
 \subsubsection{磁盘I/O带宽控制}
 
@@ -666,7 +686,7 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 该命令通过PRM对磁盘控制器控制平面（cpa3）进行编程，修改LDom\#0的带宽占比为80\%，
 图\ref{fig:pardsim:iosched}给出了磁盘I/O带宽分配的效果。
 
-\begin{figure}[t]
+\begin{figure}[b]
   \centering
   \includegraphics[width=0.45\textwidth]{hwres/pard-sim-iosched}
   \caption{磁盘I/O性能隔离}

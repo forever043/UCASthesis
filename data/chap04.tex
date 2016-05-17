@@ -423,8 +423,8 @@ PARD模拟器是基于gem5\cite{binkert_gem5_2011}开发的时钟精确（cycle-
 控制平面网络基于gem5模拟器中总线逻辑实现，连接以上3个控制平面到PRM的控制平面适配器。
 PRM上运行经过裁剪的Linux系统，基于内核版本2.6.28.4和Busybox\cite{busybox}实现。
 
-该模拟器能够模拟PARD体系结构的关键特性，实现将一台PARD服务器划分为最多4个逻辑域，
-并在其中运行未经修改的Gentoo Linux（内核版本2.6.28.4）；
+该模拟器能够模拟PARD体系结构的关键特性，实现将PARD服务器划分为最多4个逻辑域，
+并运行未经修改的Gentoo Linux（内核版本2.6.28.4）；
 典型的Benchmark应用，如SPEC CPU\cite{cpu2006}；
 以及CloudSuite\cite{Ferdman:2012:cloudsuite}的部分组件，如memcached\cite{memcached}。
 

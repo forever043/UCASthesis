@@ -104,7 +104,7 @@ Xen和KVM平均也分别有8.8\%和19.8\%的性能下降。
 \begin{figure}[tb]
   \centering
   \includegraphics[width=0.8\textwidth]{bg/reddy-vmm-eval}
-  \caption{不同虚拟化场景下CPU性能对比\cite{Reddy:2014}}
+  \caption{不同Hypervisor性能对比\cite{Reddy:2014}}
   \label{fig:reddy-vmm-eval}
 \end{figure}
 
@@ -112,9 +112,9 @@ Xen和KVM平均也分别有8.8\%和19.8\%的性能下降。
 另一方面，
 IBM在其SoftLayer云平台中对采用虚拟机与物理机运行3年web应用后的成本与性能进行统计\cite{Stadtmueller:2015}，
 结果如表\ref{tab:ibm:vmm-eval}所示。
-可以看到使用虚拟化技术虽然节省了基础设施的开销，但却带来了额外的软件费用与性能下降，
-使得单位负载开销反而不如在物理机上直接部署相应的web应用，
-这说明当前虚拟化技术并不是非常完善的资源隔离技术，仍有改进空间。
+可以看到虚拟化技术虽然节省基础设施开销，但却带来额外的软件费用与性能下降，
+使得单位负载开销反而高于物理机上直接部署应用。
+当前虚拟化技术并不是非常完善的资源隔离技术，仍有改进空间。
 
 \begin{table}[t]
   \centering
