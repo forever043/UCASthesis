@@ -29,7 +29,7 @@ PARD模拟器也面临这样的问题：
 
 \subsection{基础系统选择}
 
-实现PARD原型系统的第一个工作是选择一个合适的基础系统，
+实现PARD原型系统的首要工作是选择合适的基础系统，
 PARD对基础系统有以下需求：
 
 \begin{enumerate}[leftmargin=2\parindent, nolistsep, label=\arabic*）]
@@ -45,8 +45,8 @@ PARD对基础系统有以下需求：
 虽然在开源领域有大量可用的处理器软核，如Oracle OpenSPARC T1\cite{opensparct1}、
 RISC-V\cite{riscv}、OpenRISC\cite{or1k}、LEON3\cite{leon3}等，
 但这些软核并不能满足PARD原型系统的需求。
-其中OpenSPARC T1和RISC-V目前的FPGA实现并不是一个独立系统，
-需要额外的处理器（如MicroBlaze或ARM）作代理以实现访存与I/O操作；
+其中OpenSPARC T1和RISC-V目前的FPGA实现并不是独立系统，
+需要额外的处理器（如MicroBlaze或ARM）做代理以实现访存与I/O操作；
 OpenRISC 1200的软件开发环境支持并不完整；
 LEON3是目前开源的处理器软核中最为合适的选择，但其对linux内核的支持并不好，
 目前只能运行早期的内核版本，同时软件环境也比较老旧，运行数据中心应用存在一定的困难。
@@ -67,30 +67,30 @@ LEON3是目前开源的处理器软核中最为合适的选择，但其对linux�
 \end{figure}
 
 
-基于MicroBlaze的一个典型系统架构如图\ref{fig:microblaze-base-arch}所示，
+基于MicroBlaze的典型系统架构如图\ref{fig:microblaze-base-arch}所示，
 MicroBlaze系统的固件代码保存在Block Memory中，
 通过LMB（Local Memory Bus）总线连接到处理器核；
 缓存子系统采用哈佛结构，具有分离的指令与数据缓存，它们通过AXI4总线连接到内存控制器；
 I/O子系统同样使用AXI4总线互连，其中包括基本的外设，如中断控制器、串口、时钟等，
 也支持一些复杂的I/O设备，如以太网\cite{axi-ethernet-subsystem}、
-PCI-E\cite{axi-pcie-bridge}等。
+PCI-Express\cite{axi-pcie-bridge}等。
 MicroBlaze同时还提供了硬件调试接口，可以通过JTAG对其进行调试。
 
 目前Xilinx提供的MicroBlaze软核并不支持多处理器架构，
 在硬件实现上没有提供处理器间同步、通信机制，
 之前一些工作\cite{microblaze-mp-rsp08,microblaze-mp-xapp}尝试为其增加多处理器支持，
-但这些工作只是实现也最底层的处理器间同步、通信机制，
+但这些工作只是实现了最底层的处理器间同步、通信机制，
 没有可用的操作系统层次上的多核支持。
 受到该因素的影响，本文所设计的PARD原型系统只实现了``伪多核''的系统，
-即系统中存在多个处理器核，但每个一逻辑域都被限制为只能使用一个处理器核。
-未来MicroBlaze的多核软硬件支持完善后，可以很容易的将PARD原型系统的这一限制解除，
+即系统中存在多个处理器核，但每个逻辑域都被限制为只能使用1个处理器核。
+未来MicroBlaze的多核软硬件支持完善后，可以很容易的解除PARD原型系统的这一限制，
 实现真正的多核系统。
 
 
 \subsection{PARD原型系统架构}
 
 PARD原型系统架构如图\ref{fig:pard-arch-impl}所示，
-该系统由处理器子系统、I/O子系统、PRM SoC三部分组成。
+该系统由处理器子系统、I/O子系统、PRM SoC 3部分组成。
 其中处理器子系统包含4个处理器核心、共享缓存和内存控制器；
 I/O子系统中包含4个串口控制器、2个以太网控制器和1个PCI Express根逻辑（RootComplex），
 系统中所有的数据通路使用AXI4总线连接；
@@ -136,7 +136,7 @@ AXI4总线协议中使用独立的通道实现读写请求、数据与响应，
 用于将标签寄存器的值附加到AXI4总线AR/AW 2个通道的USER信号中，完成请求标记。
 
 % 增加共享缓存模块：支持16路、实现标签传播、实现划分
-Xilinx为AXI4总线提供了一个缓存功能的IP核SystemCache\cite{pg118-system-cache}，
+Xilinx为AXI4总线提供了缓存功能的IP核SystemCache\cite{pg118-system-cache}，
 其默认配置最多只能够支持4路组关联，这对于四核的PARD原型系统来说，
 不足以验证缓存容量划分的功能，本文通过修改IP核实现，将其扩展到16路组关联；
 按照第\ref{chap:labeladdrspace:propagation}节所述的方式，为该模块增加了标签传播功能；
@@ -164,7 +164,7 @@ PARD的I/O子系统内部结构如图\ref{fig:pard-io-impl}所示，
 该原型系统对外呈现3类接口：1个RS232串口，与PRM的串口相连；
 3个SFP接口，其中2个连接到I/O子系统，另外1个与PRM的以太网接口相连；
 1个PCI-E Gen3 x4接口，连接到I/O子系统，可以连接兼容的PCI-E设备，
-在本例中在该接口连接了1个Intel PCI-E以太网卡（芯片型号82575）。
+当前实现中该接口连接了1个Intel PCI-E以太网卡（芯片型号82575）。
 
 \begin{figure}[t]
   \centering
@@ -192,10 +192,10 @@ FPGA原型系统中，PRM软件栈主要实现3个功能，分别是：
 2）逻辑域操作系统支持；
 3）Mesos接口。
 其中1）和3）两个功能在第\ref{chap:prm}章已经做了详细介绍，
-本节只讨论逻辑域操作系统支持这一功能。
+本节只讨论逻辑域操作系统支持功能。
 
 对比模拟器实现（第\ref{chap:labeladdrspace:nohype}节），
-逻辑域操作系统支持包括操作系统加载与BIOS配置信息的生成两部分。
+逻辑域操作系统支持包括操作系统加载与BIOS配置信息的生成2部分。
 在FPGA原型系统中，这些工作都是由PRM软件栈完成。
 首先是BIOS配置信息生成，与x86平台不同，
 MicroBlaze架构使用DeviceTree\cite{device-tree}替代BIOS配置，
@@ -213,8 +213,8 @@ MicroBlaze架构使用DeviceTree\cite{device-tree}替代BIOS配置，
   \label{fig:device-tree-example}
 \end{figure}
 
-由于PRM与逻辑域位于两个独立的系统，为了让PRM能够实现与逻辑域内存的数据传输，
-在PRM中增加了一个DMA引擎，用于实现PRM内存与主系统内存之间的数据传输。
+由于PRM与逻辑域位于2个独立的系统，为了让PRM能够实现与逻辑域内存的数据传输，
+在PRM中增加1个DMA引擎，用于实现PRM内存与主系统内存之间的数据传输。
 与带有DMA功能的I/O设备类似，该DMA引擎也需要增加标签寄存器，用于标记请求来源，
 该寄存器同样通过$I^2C$总线连接到PRM。
 PRM在启动DMA传输前，首先需要设置DMA的标签寄存器，将其设置为目标逻辑域的标签，
@@ -282,7 +282,7 @@ I/O地址映射的目标地址范围只能在以上物理地址范围内。
 I/O控制平面中增加了额外的配置表，
 用于保存物理地址空间和中断（表\ref{tab:pard-io-phyconfig}），
 在系统启动时，PRM通过I/O控制平面的配置表枚举系统中存在的设备，为后续的逻辑域设备分配做准备。
-I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）''和``目标基址（rebase）''三个表项实现I/O地址映射，
+I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）''和``目标基址（rebase）'' 3个表项实现I/O地址映射，
 使用``物理中断（phyintr）''、``目标中断（destintr）''两个表项实现中断映射。
 用于DMA请求标记的标签寄存器是通过控制表中``标签（DSid）''进行控制。
 
@@ -326,8 +326,8 @@ I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）
   \item MicroBlaze提供put/get指令实现对Stream Link的接口，
         通过合并多个put或get指令即可实现请求缓存指令rbput和rbget。
         如表\ref{tab:pard-dp-isa-impl}所示，``请求''类型的长度为12个字节，
-        使用3个MicroBlaze通用寄存器（r10-r12）作为请求寄存器，
-        使用get/put指令操作Stream Link接口fsl0，实现rbget和rbput的功能。
+        使用3个MicroBlaze通用寄存器（$r10\sim r12$）作为请求寄存器，
+        使用get/put指令操作Stream Link接口$fsl0$，实现rbget和rbput的功能。
 \end{enumerate}
 
 \begin{table}[tb]
@@ -341,13 +341,13 @@ I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）
       \midrule[1pt]
 
       \multirow{8}{2cm}{\textbf{MicroBlaze指令实现}} & \multicolumn{2}{l}{rbput:}   & \multicolumn{2}{l}{rbget:} \\
-                                                   &  & nget fsl0                 &  & nput fsl0               \\
-                                                   &  & addc r3, r0, r0           &  & addc r3, r0, r0         \\
-                                                   &  & bneq ret                  &  & bneq ret                \\
-                                                   &  & get r10, fsl0             &  & put r10, fsl0           \\
-                                                   &  & get r11, fsl1             &  & put r11, fsl1           \\
-                                                   &  & get r12, fsg2             &  & put r12, fsl2           \\
-                                                   & \multicolumn{2}{l}{ret:}     & \multicolumn{2}{l}{ret:}   \\
+                                                   &  & nget $fsl0$                 &  & nput $fsl0$             \\
+                                                   &  & addc $r3$, $r0$, $r0$       &  & addc $r3$, $r0$, $r0$   \\
+                                                   &  & bneq ret                    &  & bneq ret                \\
+                                                   &  & get $r10$, $fsl0$           &  & put $r10$, $fsl0$       \\
+                                                   &  & get $r11$, $fsl1$           &  & put $r11$, $fsl1$       \\
+                                                   &  & get $r12$, $fsl2$           &  & put $r12$, $fsl2$       \\
+                                                   & \multicolumn{2}{l}{ret:}       & \multicolumn{2}{l}{ret:}   \\
       \bottomrule[1.5pt]
     \end{tabular*}\\[2pt]
   \end{minipage}
@@ -372,13 +372,13 @@ I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）
 
 在PARD中使用逻辑域的抽象，可以为不同的逻辑域分配不同的资源，
 本节将测试PARD如何为相同的应用分配不同的资源，以实现区分化服务的功能。
-实验过程中同时运行两个配置完全相同的逻辑域，都包含一个处理器核和1GB内存，
-两个逻辑域内运行相同的应用，通过Cache控制平面调整其缓存容量的分配，
+实验过程中同时运行2个配置完全相同的逻辑域，都包含1个处理器核和1GB内存，
+2个逻辑域内运行相同的应用，通过Cache控制平面调整其缓存容量的分配，
 验证PARD在末级缓存资源上区分化服务的效果。
 
 图\ref{fig:diffserv-mcf-ipc-hitrate}给出了429.mcf的测试结果，
-通过为两个逻辑域分配不同的缓存容量（4路和12路），
-两个逻辑域内应用的总执行时间、以及缓存命中率存在明显的差别。
+通过为2个逻辑域分配不同的缓存容量（4路和12路），
+2个逻辑域内应用的总执行时间、以及缓存命中率存在明显的差别。
 图\ref{fig:diffserv-memcached-rps}是使用memcached作为测试负载的结果，
 分配到12路缓存的逻辑域，其运行过程中缓存命中率平均约为98.19\%，
 而只分配到4路缓存的逻辑域，其缓存命中率只有77.19\%。
@@ -446,7 +446,7 @@ I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）
 其中LDom\#0运行429.mcf，另外3个逻辑域运行干扰应用。
 当LDom\#0单独运行时，它独占所有16路的Cache，执行时间大约为150秒；
 与3个干扰应用同时运行时，执行时间延长到222秒，大约增加了48\%；
-通过PARD提供的缓存隔离机制，将12路Cache分配给mcf，其性能基本恢复，
+通过PARD提供的缓存隔离机制，将12路Cache分配给429.mcf，其性能基本恢复，
 只增加了7\%的执行时间。
 
 更换关键应用负载为memcached后，其测试结果如图\ref{fig:isolation-memcached}所示。
@@ -536,7 +536,7 @@ PRM检测到中断发生需要1.6ms，响应动作（向参数表写入新策略
 能够得到25.1MB/s的访存带宽（如图\ref{fig:pard-dp-stream}所示）。
 
 由于地址映射功能只需要对请求地址进行操作，而无需对数据进行修改，
-因此首先实现了一个简化版本的数据平面处理器（工作在100MHz频率），
+因此首先实现了1个简化版本的数据平面处理器（工作在100MHz频率），
 该处理器只对地址请求进行处理，数据绕过处理器直接发送到内存控制器。
 在使用该设计后测得的访存带宽是21.5MB/s，与非处理器实现相比并没有特别明显的下降。
 
@@ -575,7 +575,7 @@ PARD的标签机制会在数据通路上产生额外的资源开销，对应到F
 为了便于比较，CrossBar和Cache都配置为9个AXI Slave端口和1个AXI Master端口，
 同时评估了4种不同配置下（无标签、8位标签、16位标签和32位标签）的资源开销，
 结果如图\ref{fig:xbar-dsid-overhead}和图\ref{fig:cache-dsid-overhead}所示。
-为了方便对比，图\ref{fig:cache-dsid-overhead}中Block RAM的资源为放大10倍后的结果，
+为了方便对比，图\ref{fig:cache-dsid-overhead}中Block RAM的资源为放大10倍后的数据，
 其原始数据分别为153、157、161和169。
 
 对于CrossBar，不同长度的标签并没有带来特别大的资源占用，
@@ -603,7 +603,7 @@ PARD的标签机制会在数据通路上产生额外的资源开销，对应到F
 
 \subsubsection{控制平面资源开销}
 
-控制平面的资源开销主要体现在表存储、触发逻辑两方面，
+控制平面的资源开销主要体现在表存储、触发逻辑2个方面，
 由于控制表使用了CAM结构，无法使用FPGA中的BRAM资源实现表存储，
 因此需要消耗一定量的LUT和Register资源，不过与全系统占用的资源总量相比，
 这部分的资源开销并不大。
@@ -633,7 +633,7 @@ PARD的标签机制会在数据通路上产生额外的资源开销，对应到F
 
 \subsubsection{数据平面资源开销}
 
-可编程数据平面的资源开销主要在处理器逻辑及其使用的scratchpad memory两个方面。
+可编程数据平面的资源开销主要在处理器逻辑及其使用的scratchpad memory容量2个方面。
 在通过配置精简后，MicroBlaze处理器所占用的资源量大大减少，
 其Slice（LUT和Register）占用只有完整配置的50\%左右，
 scratchpad memory的容量由固件代码的大小决定，
@@ -663,7 +663,7 @@ scratchpad memory的容量由固件代码的大小决定，
 
 \section{小结}
 
-本章对前述章节中资源管理可编程体系结构PARD的设计进行了原型系统实现，包括模拟器与FPGA原型两部分。
+本章对前述章节中资源管理可编程体系结构PARD的设计进行了原型系统实现，包括模拟器与FPGA原型2部分。
 主要对FPGA原型系统中可编程控制平面和可编程数据平面的功能进行验证，并评估其性能与资源开销。
 实验结果表明，该原型系统能够实现本文所提出的全部功能，包括：
 1）无软件Hypervisor支持的全硬件虚拟化；2）应用区分化服务；3）性能隔离。
@@ -678,3 +678,4 @@ PARD体系结构的扩展并不会对系统性能造成影响，也不会增加�
   \caption{PARD原型系统布局布线结果}
   \label{fig:pard-fpga-routed}
 \end{figure}
+
