@@ -125,7 +125,7 @@
 计算机内的硬件资源主要可以分为基于容量的资源和基于流量的资源2类，
 例如，共享缓存、处理器核、以及硬盘空间是基于容量的资源，
 总线带宽、访存带宽、或网络带宽是基于流量的资源。
-2类资源在管理上使用不同的参数与策略，PARD使用数据平面与控制平面抽象对其进行统一，
+这2类资源在管理上使用不同的参数与策略，PARD使用数据平面与控制平面抽象对其进行统一，
 实现这些不同类别硬件资源的统一管理，
 其中数据平面用于执行请求操作，如处理器末级缓存对DataArray/TagArray的管理、替换策略实现等；
 对于内存控制器，其数据平面负责接收上层访存请求、将物理地址转换为DRAM地址以及访存请求调度等。
@@ -380,7 +380,7 @@ PARD控制平面的核心是3个控制表，即参数表、状态表和触发表
 除此之外，控制平面中还包含连接控制平面网络的接口模块，
 PRM通过该模块来访问3个控制表。
 
-3个控制表都使用CAM+RAM的结构实现，
+这3个控制表都使用CAM+RAM的结构实现，
 其中参数表与统计信息表的CAM中使用应用标签DS-id进行索引，
 触发表的CAM中除应用标签DS-id外还包括触发条件对应的统计信息编码。
 参数表在收到参数查询请求后，通过CAM查询该请求所对应的表项，
@@ -405,11 +405,11 @@ PRM通过该模块来访问3个控制表。
 控制平面网络接口模块使用寄存器窗口的方式对外提供控制表的访问，
 如图\ref{fig:pard-cp-intf}所示。
 系统内所有的控制平面都被映射到一段连续的16位I/O地址空间中（64KB），
-每一个控制平面在其中使用32个字节用于映射其控制寄存器，控制寄存器的定义如图\ref{fig:pard-cp-intf}所示。
+每个控制平面在其中使用32个字节用于映射其控制寄存器，控制寄存器的定义如图\ref{fig:pard-cp-intf}所示。
 其中IDENT和IDENT\_HIGH 2个寄存器（总计12字节）存储该控制平面的名字，
 type寄存器表示该控制平面的类型，
 address/cmd/data 3个寄存器用于实现对控制平面中控制表的访问。
-其中address寄存器包含16位的逻辑域标签DS-id、2位的控制表选择、以及14位的列偏移，
+其中address寄存器包含逻辑域标签DS-id（16b）、控制表选择（2b）、以及列偏移（14b），
 通过该寄存器实现对控制表项的寻址，而cmd寄存器用于指定对该控制表项的操作，
 当前的实现中只包含读、写两种类型的操作。
 对于写操作，用户需要提前将数据写入到data寄存器，而对于读操作data寄存器的写入操作由控制平面硬件完成，
@@ -438,11 +438,10 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 
 \textbf{共享末级缓存控制平面}\quad
 图\ref{fig:pard-cache-cpdesign}是共享末级缓存控制平面的微体系结构示意图，
-其支持可编程的路划分机制，借助这一机制可以为应用程序调整Cache容量。
-该控制平面由3个基本的控制表组成，即参数表、统计表以及触发表，
-这三张控制表可以通过可编程接口由PRM上的固件进行访问；
-控制平面同时还包括一个连接到PRM的中断线。
-除了引入控制平面以外，还需要对原有缓存控制器中的Tag Array以及伪LRU逻辑进行了修改，
+其支持可编程的路划分机制，借助该机制可以为应用程序调整Cache容量。
+其控制平面由3个基本的控制表组成，并通过可编程接口由PRM中运行的固件访问；
+控制平面同时还包括1个连接到PRM的中断线，用于发送触发逻辑产生的中断通知。
+除了引入控制平面以外，还需要对原有缓存控制器中的Tag Array以及伪LRU逻辑进行修改，
 所有这些修改均以阴影和虚线的方式在图中进行了标识。
 
 \begin{figure}[tb]
@@ -457,24 +456,24 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 这就使得控制平面的逻辑开销能够隐藏在原有的流水线中，具体流程如下：
 
 \begin{enumerate}[leftmargin=2\parindent, nolistsep, label=（\arabic*）]
-  \item 当一个包含DS-id和地址的Cache访问请求到达控制器时，
+  \item 当包含DS-id和地址的Cache访问请求到达控制器时，
         首先需要利用DS-id从参数表中获得相应的路划分掩码。
         例如掩码``0x00FF''代表在整个16路中仅使用低端的8路。
         与此同时，请求地址被用来在Tag Array中查找相应的条目，
         这些条目除了普通的Tag和状态信息以外，还保存有DS-id；
-  \item 伪LRU逻辑利用参数表输出的掩码以及Tag Array输出的访问历史计算出哪一路需要被替换；
+  \item 伪LRU逻辑利用参数表输出的掩码以及Tag Array输出的访问历史计算出需要被替换的路（victim）；
   \item 如果请求在缓存中命中，那么数据将从Data Array中取回，
         连同请求的DS-id一起通过NoC或者crossbar返回给CPU。
         需要注意的是，缓存的命中条件发生了改变，除了请求地址与条目Tag之间原有的约束以外，
         还需要请求DS-id与条目DS-id相互匹配。
-  \item 如果请求在缓存中没有命中，Cache控制器会分配一个MSHR条目，
+  \item 如果请求在缓存中没有命中，Cache控制器会分配1个MSHR条目，
         并在该条目中保存原始请求及其DS-id。
         当被请求的数据返回时，Cache控制器需要将MSHR中保存的原始请求DS-id写入到TagArray中。
         该DS-id作为``owner DS-id''，在脏数据写回时，
         需要与地址和数据一同送入回写缓存，并发送到内存控制器。
   \item 在以上各个步骤的过程中，Cache控制平面还会完成以下若干操作：
         更新统计表，将Cache使用统计数据发送给平台资源管理器，
-        在必要时激活触发条件并发出一个中断信号给PRM。
+        在必要时激活触发条件并发出中断信号给PRM。
         需要特别指出的是这些操作并不在关键路径上，不会对延迟造成影响。
 \end{enumerate}
 
@@ -495,26 +494,13 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
   \label{fig:pard-mig-cpdesign}
 \end{figure}
 
-%Regarding performance isolation, unlike the LLC, the memory
-%control plane needs to takes into account two factors, i.e., queuing
-%delay and row buffer locality. To manage queuing delay, we add
-%a priority queuing mechanism into the memory controller. The
-%number of queues depends on the priority levels supported by
-%the memory control plane. Our current design only supports two
-%priories, but it is easy to extend. To avoid memory low-priority
-%requests degrading the row buffer hit rate of high-priority requests,
-%we add one extra row buffer into each DRAM chip for high-priority
-%memory requests. If we want to augment DRAM chip with more
-%buffers, we can leverage some commercial designs such as NEC’s
-%virtual-channel memory (VCM).
-
 在性能隔离方面，与Cache控制面不同的是内存控制器控制平面需要考虑以下2个因素：
 排队延迟和行缓冲（row buffer）局部性。
 为了管理排队延迟，PARD在内存控制器中加入了优先级队列机制，
 队列数目取决于内存控制平面能够支持的优先级等级。
-当前的设计中暂时仅支持2个优先级，但可以很容易被扩展到多个优先级。
+当前的设计中暂时仅支持2个优先级，该设计可以很容易的扩展到多个优先级。
 为了防止低优先级访存请求干扰并降低高优先级访存请求的行缓冲命中率，
-在DRAM芯片中为高优先级内存请求增加了一个额外的专用行缓冲。
+在DRAM芯片中为高优先级内存请求增加了1个额外的专用行缓冲。
 如果需要为DRAM芯片增加更多的优先级控制能力，
 可以参考NEC的virtual-channel memory（VCM）\cite{nec-vcm}技术。
 
@@ -552,37 +538,12 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 本节将使用该模拟器验证控制平面对资源分配的控制（磁盘控制器）、
 以及``\emph{trigger$\Rightarrow$action}''机制的效果（处理器末级缓存）。
 
-\iffalse
-\begin{table}[ht]
-  \centering
-  \begin{minipage}[t]{0.75\linewidth}
-  \caption{PARD模拟器控制平面控制表设计}
-  \label{tab:pard-sim-cp}
-    \begin{tabular*}{\linewidth}{rl}
-      \toprule[1.5pt]
-        \textbf{Parameter Table}  &   Cache: way mask-bits                               \\
-                                  &   Memory: address mapping                            \\
-                                  &   Disk: bandwidth                                    \\
-        \hline
-        \textbf{Statistics Table} &   Cache: miss rate, capacity                         \\
-                                  &   Memory: bandwidth, latency                         \\
-                                  &   Disk: bandwidth                                    \\
-        \hline
-        \textbf{Trigger Table}    &   LLC miss rate $\Rightarrow$ way mask-bits          \\
-%                                  &   Memory latency $\Rightarrow$ row-buffer mask-bits  \\
-%                                  &   Memory latency $\Rightarrow$ scheduling priority   \\
-      \bottomrule[1.5pt]
-    \end{tabular*}\\[2pt]
-  \end{minipage}
-\end{table}
-\fi
-
 \begin{table}[ht]
   \centering
   \begin{minipage}[t]{0.9\linewidth}
   \caption{PARD模拟器控制平面控制表设计}
   \label{tab:pard-sim-cp}
-    \begin{tabular*}{\linewidth}{rlll}
+    \begin{tabular*}{\linewidth}{p{0.15\textwidth}<{\centering}lll}
       \toprule[1.5pt]
              & \textbf{Parameter Table} & \textbf{Statistics Table} & \textbf{Trigger Table} \\
       \midrule[1pt]
@@ -612,7 +573,7 @@ PRM通过以上描述的寄存器接口实现对控制平面的编程，具体�
 
 实验分为2步，
 首先使用模拟器的simple-timing模型来启动Linux操作，启动应用并建立checkpoint；
-然后使用Out-Of-Order（O3）模型恢复该checkpoint，最后的实验评估使用O3模型进行。
+然后使用Out-of-Order（O3）模型恢复该checkpoint，最后的实验评估使用O3模型进行。
 受到模拟速度的影响，本实验只模拟了memcached应用的3秒钟执行（花费大约30个小时），
 其中第1秒是warm-up过程，后2秒才被用于评估。
 
@@ -768,7 +729,7 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
 无符号整数的长度与处理器的位宽相同，都被设置为其所属硬件的位宽，
 以节约请求处理时位宽转换的开销，保障请求处理的效率。
 
-``请求''类型的是变长数据类型，其中包含了固定的16位应用标签（DS-id）以及变长的请求数据。
+``请求''类型的是变长数据类型，其中包含了固定16b长度的应用标签（DS-id）以及变长的请求数据。
 以访存请求为例，其中包含请求地址、长度、线程号、读写类型、锁与缓存状态等其他标志位；
 对于Cache替换请求，其中包含了请求地址、Hit/Miss标记以及其他标志位信息。
 图\ref{fig:pard-dp-datatype}给出了访存请求以及Cache替换请求类型的示例。
@@ -817,7 +778,7 @@ PARD控制平面不仅能管理处理器末端级缓存这类基于容量的资�
   \begin{minipage}[t]{0.95\linewidth}
   \caption{数据平面处理器扩展指令}
   \label{tab:pard-dp-isa}
-    \begin{tabular*}{\linewidth}{lll}
+    \begin{tabular*}{\linewidth}{p{0.12\textwidth}<{\centering}ll}
       \toprule[1.5pt]
       {\heiti 指令} & {\heiti 用途} \\
       \midrule[1pt]
