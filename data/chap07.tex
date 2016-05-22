@@ -283,7 +283,7 @@ I/O控制平面中增加了额外的配置表，
 用于保存物理地址空间和中断（表\ref{tab:pard-io-phyconfig}），
 在系统启动时，PRM通过I/O控制平面的配置表枚举系统中存在的设备，为后续的逻辑域设备分配做准备。
 I/O控制平面的参数表使用``基址（base）''、``长度掩码（mask）''和``目标基址（rebase）'' 3个表项实现I/O地址映射，
-使用``物理中断（phyintr）''、``目标中断（destintr）''两个表项实现中断映射。
+使用``物理中断（phyintr）''、``目标中断（destintr）''2个表项实现中断映射。
 用于DMA请求标记的标签寄存器是通过控制表中``标签（DSid）''进行控制。
 
 
@@ -570,8 +570,8 @@ PARD的资源开销主要体现在3个方面，分别是：
 \subsubsection{标签传播资源开销}
 
 PARD的标签机制会在数据通路上产生额外的资源开销，对应到FPGA原型系统，
-该开销主要体现在系统中AXI CrossBar和Cache两部分，
-本节将对标签机制在这两部分中产生的资源开销进行评估。
+该开销主要体现在系统中AXI CrossBar和Cache 2部分，
+本节将对标签机制在这2部分产生的资源开销进行评估。
 为了便于比较，CrossBar和Cache都配置为9个AXI Slave端口和1个AXI Master端口，
 同时评估了4种不同配置下（无标签、8位标签、16位标签和32位标签）的资源开销，
 结果如图\ref{fig:xbar-dsid-overhead}和图\ref{fig:cache-dsid-overhead}所示。

@@ -21,7 +21,7 @@
 
 通过服务器资源共享，将多个应用运行在同一服务器，是提高服务器资源利用率最为直接的方式。
 但不同应用对操作系统、运行时环境等需求各不相同，无法直接实现应用混合部署；
-即使是运行时环境兼容的两个应用，部署在同一台服务器后，
+即使是运行时环境兼容的2个应用，部署在同一台服务器后，
 对某一应用配置的修改都可能会对另一个应用的运行造成影响；
 同时，由于数据中心应用来自于不同的用户，混合部署还可能存在隐私与安全性问题，
 造成应用数据信息的泄漏。
@@ -121,7 +121,7 @@ IBM在其SoftLayer云平台中对采用虚拟机与物理机运行3年web应用�
   \begin{minipage}[t]{0.8\linewidth}
   \caption{在IBM SoftLayer平台上运行web应用的3年成本与性能对比\cite{Stadtmueller:2015}}
   \label{tab:ibm:vmm-eval}
-  \begin{tabular*}{\linewidth}{lrr}
+  \begin{tabular*}{\linewidth}{p{0.25\textwidth}<{\centering}p{0.3\textwidth}<{\raggedleft}p{0.3\textwidth}<{\raggedleft}}
     \toprule[1.5pt]
                        & \textbf{使用虚拟化技术} & \textbf{不使用虚拟化技术} \\
     \midrule[1pt]
@@ -151,8 +151,9 @@ IBM在其SoftLayer云平台中对采用虚拟机与物理机运行3年web应用�
 
 \subsection{任务调度}
 
-数据中心中任务众多，它们有着不同的需求，虽然前文提到应用共享资源可能会产生竞争，但也存在这样的可能，
-两个应用之间的资源需求是正交的，即两者之间不会发生竞争或竞争并不激烈，在这样的情形下，资源共享并不会带来干扰。
+数据中心中任务众多，它们有着不同的需求，虽然前文提到应用共享资源可能会产生竞争，
+但也存在2个应用之间的资源需求是正交的可能，即两者之间不会发生竞争或竞争并不激烈，
+在这样的情形下，资源共享并不会带来干扰。
 以图\ref{fig:apps-corun-bubbleup}和图\ref{fig:apps-corun-measuring}为例，
 并非所有的应用组合都会产生严重的性能干扰，例如：
 图\ref{fig:apps-corun-bubbleup}中websearch与map、protobuf和sawzall三个应用混合运行时，并不会对其性能造成严重的影响；
@@ -188,8 +189,8 @@ Kim:2004, mars_contention_2010, Nathuji:2010, Tang:2011}
 并以此为依据进行任务调度\cite{Chandra:2005, Knauerhase:2008, mars_contention_2010,
 Zhuravlev:2010}，该方案将复杂度降低到$O(N)$，
 其代价是降低了干扰预测的精度，这些工作通常只能对应用进行粗略的分类，
-例如划分为``激烈''与``不激烈''两类，
-而不能精确的预测出两个应用混合后会出现何种程度的性能下降。
+例如划分为``激烈''与``不激烈''2类，
+而不能精确的预测出2个应用混合后会出现何种程度的性能下降。
 而精确的干扰预测对于任务调度来说是十分必要的，基于此需求，
 Bubble-Up\cite{mars_bubble-up:_2011}提出一种精确预测2个应用混合运行后性能干扰程度的方法，
 如图\ref{fig:bubble-up-overview}所示，该方法分为2部分：
@@ -205,11 +206,11 @@ Bubble-Up虽然解决的扩展性与精确预测的问题，但它依然是基�
 \begin{figure}[tb]
   \centering
   \includegraphics[width=\textwidth]{bg/bubble-up-overview}
-  \caption[BubbleUp\cite{mars_bubble-up:_2011}原理示意图]{
+  \caption[BubbleUp原理示意图\cite{mars_bubble-up:_2011}]{
     Bubble-Up\cite{mars_bubble-up:_2011}原理示意图：
     1）评估应用性能对内存子系统压力的敏感曲线；
     2）识别应用对内存子系统产生的压力；
-    3）使用以上两组参数，识别应用之间的干扰程度。}
+    3）使用以上2组参数，识别应用之间的干扰程度。}
   \label{fig:bubble-up-overview}
 \end{figure}
 
@@ -239,7 +240,7 @@ Paragon的分类引擎利用历史应用的调度信息进行离线训练，
 \begin{figure}[tb]
   \centering
   \includegraphics[width=\textwidth]{bg/paragon-overview}
-  \caption{Paragon\cite{delimitrou_paragon:_2013}原理示意图}
+  \caption{Paragon原理示意图\cite{delimitrou_paragon:_2013}}
   \label{fig:paragon-overview}
 \end{figure}
 
@@ -376,7 +377,7 @@ Cook等人\cite{cook_hardware_2013}评估了缓存容量划分对混合运行应
 
 与软件服务质量保障技术相比，在硬件层次能够对资源拥有更多的控制，实现细粒度的管理。
 但其缺点也非常明显，相比软件修改，硬件修改的复杂度更高，同时周期也更长。
-已有的硬件服务质量保障技术主要集中在Cache和Memory两个对应用性能影响最大的资源上，
+已有的硬件服务质量保障技术主要集中在Cache和Memory这2个对应用性能影响最大的资源上，
 通过Cache容量划分、访存调度与划分的方式，实现应用之间的隔离，
 进而实现应用服务质量保障。
 
@@ -384,7 +385,7 @@ Cook等人\cite{cook_hardware_2013}评估了缓存容量划分对混合运行应
 
 命中率是评价Cache性能的主要指标，它与应用行为、缓存容量以及替换策略3个方面相关。
 在多应用混合的场景下，不同应用对缓存容量的竞争是在Cache上出现性能干扰的主要原因，
-本节主要从容量划分机制与容量划分策略两个角度，讨论解决缓存容量竞争的硬件服务质量保障技术。
+本节主要从容量划分机制与容量划分策略2个角度，讨论解决缓存容量竞争的硬件服务质量保障技术。
 
 容量划分是最直接的方案，上节中介绍的基于Intel缓存容量划分技术\cite{cook_hardware_2013}
 可以降低应用混合场景下缓存层次上的竞争，提高性能。
@@ -415,7 +416,7 @@ Vantage并没有划分全部的缓存容量，而且利用部分未划分的缓�
 而较大的未划分区域（20\%）则能够来带强隔离的效果。
 基于该特性，Vantage能够满足不同隔离需求的应用，同时还能够保障每个分区内的关联度。
 
-容量划分策略是多应用共享缓存时需要解决的另一个重要问题，策略分为静态划分与动态划分两类。
+容量划分策略是多应用共享缓存时需要解决的另一个重要问题，策略分为静态划分与动态划分2类。
 Stone等人提出了最优静态划分方案\cite{stone:1992}，但由于需要获得应用在不同容量下的性能信息，
 因此该方案只能用作评估基准，而无法应用到真实场景中。
 同时应用在执行过程中，对Cache的需求会不断发生变化，
