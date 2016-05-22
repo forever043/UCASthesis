@@ -532,9 +532,13 @@ Intel从Xeon E5-v3系列处理器开始提供Resource Director Technology（RDT�
 \end{figure}
 
 目前Intel已经将RDT方案应用到共享末级缓存和内存控制器中，
-在E5-v2系列中提供CMT和MBM功能（2013年），实现按应用区分的缓存容量监控，以及内存带宽监控；
-在E5-v3系列中增加了CAT功能（2015年），实现按应用区分的缓存容量划分；
-在E5-v4系列中扩展MBM功能（2016年），实现按应用区分的内存带宽监控。
+在E5-v2系列中提供CMT（Cache Monitoring Technology）
+和MBM（Memory Bandwidth Monitoring）功能（2013年），
+实现按应用区分的缓存容量监控、以及全局内存带宽的监控；
+在E5-v3系列中增加了CAT（Cache Allocation Technology）功能（2015年），
+实现按应用区分的缓存容量划分；
+在E5-v4系列中扩展MBM功能（2016年），
+实现按应用区分的内存带宽监控。
 
 CMT和MBM技术实现应用区分的缓存容量与内存带宽监控的流程如图\ref{fig:intel-cmt-flow}所示。
 操作系统或VMM首先为执行实体（如线程、进程或虚拟机）分配资源编号RMID，后续的监控结果都将
