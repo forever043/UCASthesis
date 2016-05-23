@@ -532,7 +532,7 @@ unikernel\cite{Unikernels:2013}或LibOS\cite{Porter:2011}的实现方式，
 % Mesos如何管理资源
 
 % PARD如何支持MesosExecutor
-Mesos使用Containerizers组件在slave节点上任务的容器化，并负责任务容器的资源隔离、管理、以及状态收集。
+Mesos使用Containerizers组件在slave节点上实现任务的容器化，并负责任务容器的资源隔离、管理、以及状态收集。
 当前版本（0.28.1）的Mesos实现了4种容器化方案，分别是：Composing Containerizer、Docker Containerizer、
 Mesos Containerizer和External Containerizer，
 其中Docker和Mesos Containerizer是最为常用的2种容器化方法，分别使用基于Docker引擎和cgroup实现任务的容器化。
