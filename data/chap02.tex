@@ -45,7 +45,7 @@ VMware使用二进制翻译\cite{vmware-compare-hw-sw:2006}
 如图\ref{fig:compare-of-virt}(a)所示，实现对用户操作系统透明的虚拟化方案。
 这种基于二进制翻译的全虚拟化方案性能存在问题，
 因此Xen提出了半虚拟化（para-virtualization）\cite{barham_xen_2003}的概念，
-通过修改客户机操作系统，直接使用Hypercall的方式调用hypervisor
+通过修改客户机操作系统，直接使用Hypercall的方式调用Hypervisor
 （如图\ref{fig:compare-of-virt}(b)所示），提高系统性能。
 在虚拟化产业发展起来后，各个硬件厂商分别推出新的硬件功能以更好的支持虚拟化，
 如Intel的VT-x技术和AMD的AMD-V技术，如图\ref{fig:compare-of-virt}(c)所示，
@@ -99,7 +99,7 @@ Google是最早在其数据中心实现多应用混合部署，他们的混合�
 即使是虚拟化开销最小的VMWare ESXi也会给程序带来平均5.4\%的性能下降，
 性能下降最严重的Encryption benchmark甚至有18\%的性能下降；
 Xen和KVM平均也分别有8.8\%和19.8\%的性能下降。
-这也是为什么Google并没有在其在线应用数据中心采取相同的资源共享的原因。
+这也是为什么Google并没有在其在线应用数据中心采取基于虚拟化的资源共享方案的原因。
 
 \begin{figure}[tb]
   \centering
@@ -359,8 +359,9 @@ cgroup\cite{cgroup}是最常用的软件资源隔离机制，
 % Cache容量划分
 随着处理器核数不断增加，硬件层次上资源竞争带来的干扰趋于严重，
 各个厂商也在其处理器中增加硬件资源的管理功能。
-Intel在其Xeon E5-v3系列处理器中增加了缓存容量划分的功能，
-并向系统软件层提供了划分接口。
+Intel在Xeon E5-v3系列处理器中通过Resource Director Technology（RDT）\cite{intel-rdt}
+方案实现硬件资源管理，
+其中的Cache Allocation Technology（CAT）功能为系统软件层提供了缓存容量划分接口。
 基于这样的硬件平台，
 Cook等人\cite{cook_hardware_2013}评估了缓存容量划分对混合运行应用带来的影响。
 通过对多种应用进行混合，并采取适当的缓存容量划分策略，
